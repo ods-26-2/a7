@@ -200,7 +200,6 @@ class SessionManager:
                 "carrinho": None,
             }
 
-        # 5️⃣ Cria o item e adiciona ao carrinho
         item = CartItem(
             produto_id=produto.id,
             nome=produto.nome,
@@ -216,5 +215,4 @@ class SessionManager:
             "carrinho": self.cart.to_dict(),
         }
 
-# Exportar para importação direta
 __all__ = ["SessionManager", "SessionState", "Cart", "CartItem"]
