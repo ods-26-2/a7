@@ -1,0 +1,67 @@
+[
+  {
+    "nome": "ADICIONAR_ITEM",
+    "descricao": "O cliente deseja pedir, incluir ou adicionar um ou mais itens/produtos ao carrinho.",
+    "exemplos": [
+      "Quero dois x-saladas",
+      "Me vê uma coca-cola por favor",
+      "Vou pedir uma batata frita e um suco de laranja",
+      "Adiciona mais um milkshake"
+    ]
+  },
+  {
+    "nome": "REMOVER_ITEM",
+    "descricao": "O cliente deseja retirar, subtrair ou cancelar um item do pedido.",
+    "exemplos": [
+      "Tira o x-salada",
+      "Não quero mais a coca-cola",
+      "Remove a batata frita do meu pedido"
+    ]
+  },
+  {
+    "nome": "CONFIRMAR_PEDIDO",
+    "descricao": "O cliente está satisfeito com os itens e deseja fechar, confirmar ou finalizar o pedido para pagamento.",
+    "exemplos": [
+      "Pode fechar o pedido",
+      "Está certo, confirmo",
+      "É só isso mesmo, pode mandar",
+      "Confirmar pedido"
+    ]
+  },
+  {
+    "nome": "CANCELAR_PEDIDO",
+    "descricao": "O cliente deseja desistir de toda a compra e limpar o carrinho.",
+    "exemplos": [
+      "Cancela tudo",
+      "Quero cancelar o pedido inteiro",
+      "Desisti, pode zerar a comanda"
+    ]
+  },
+  {
+    "nome": "CONSULTAR_CARDAPIO",
+    "descricao": "O cliente está com dúvida sobre opções, preços ou disponibilidade de produtos.",
+    "exemplos": [
+      "Quanto custa a batata frita?",
+      "Vocês têm opção vegetariana?",
+      "Quais sabores de milkshake tem?"
+    ]
+  },
+  {
+    "nome": "CHAMAR_ATENDIMENTO",
+    "descricao": "O cliente solicita ajuda de um atendente ou garçom humano.",
+    "exemplos": [
+      "Chama o garçom por favor",
+      "Preciso de ajuda de um atendente",
+      "Pode chamar alguém aqui?"
+    ]
+  },
+  {
+    "nome": "PEDIR_CONTA",
+    "descricao": "O cliente pede o fechamento da conta ou forma de pagamento no balcão/mesa.",
+    "exemplos": [
+      "Pode trazer a conta",
+      "Quero pagar",
+      "Fecha a comanda pra mim"
+    ]
+  }
+]
