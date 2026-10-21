@@ -1,0 +1,54 @@
+# ==============================================================================
+# Configuração Declarativa do Módulo NLU / SLM - A7 Varejo
+# ==============================================================================
+# Este arquivo centraliza os parâmetros de inferência, conexão com o SLM,
+# caminhos dos catálogos e estruturação do prompt dinâmico.
+
+# --- 1. Parâmetros do Modelo e Provedor ---
+modelo:
+  nome: "llama3.2:1b"
+  provedor: "ollama"
+  endpoint_url: "http://127.0.0.1:11434"
+  temperatura: 0.0
+  max_tokens: 150
+  timeout_segundos: 8.0
+
+# --- 2. Caminhos para os Catálogos JSON ---
+caminhos:
+  catalogo_json: "data/cardapio_mock.json"
+  intencoes_json: "data/intencoes_catalogo.json"
+
+# --- 3. Engenharia de Prompt Dinâmico ---
+prompt:
+  instrucao_sistema: |
+    Você é o motor de NLU inteligente de uma lanchonete/restaurante de varejo.
+    Sua missão é entender a fala do cliente, classificar a intenção e extrair APENAS produtos que REALMENTE constam no CARDÁPIO OFICIAL fornecido.
+    - Desconsidere conversas paralelas, hesitações e dúvidas.
+    - Tolere transcrições imperfeitas ou variações fonéticas (ex.: "xis salada" -> X-Salada, "batatinha" -> Batata Frita Padrão).
+    - Se o cliente pedir produtos que NÃO constam no cardápio oficial (ex: pizza, sushi, chopp, pastel), NÃO invente ID: inclua esses itens em "itens_invalidos".
+    - Se a fala for fora de contexto (ex: perguntar de banheiro, clima) ou não for pedido, use a intenção "DESCONHECIDO".
+
+  regras:
+    - "Responda ESTRITAMENTE em formato JSON puro, sem explicações e sem markdown."
+    - "A chave 'intencao' deve ser uma das intenções permitidas ou 'DESCONHECIDO'."
+    - "A chave 'itens' deve conter APENAS itens reconhecidos no cardápio oficial: [{\"produto_id\": <int>, \"nome\": \"<nome_oficial>\", \"quantidade\": <int>}]."
+    - "A chave 'itens_invalidos' deve listar nomes de produtos pedidos que NÃO existem no cardápio oficial: [\"<nome_pedido>\"]."
+    - "Se a intenção não envolver itens (ex: CONFIRMAR, CANCELAR, CHAMAR_ATENDIMENTO, DESCONHECIDO), retorne 'itens': [] e 'itens_invalidos': []."
+
+  exemplos_few_shot:
+    - entrada: "Hoje gente estamos testando... eu quero um xizbeito e uma patata frita"
+      saida: '{"intencao": "ADICIONAR_ITEM", "confianca": 0.95, "itens": [{"produto_id": 2, "nome": "X-Bacon", "quantidade": 1}, {"produto_id": 11, "nome": "Batata Frita Padrão", "quantidade": 1}], "itens_invalidos": []}'
+    - entrada: "eu quero um x-salada e uma porção de sushi de salmão"
+      saida: '{"intencao": "ADICIONAR_ITEM", "confianca": 0.90, "itens": [{"produto_id": 1, "nome": "X-Salada", "quantidade": 1}], "itens_invalidos": ["sushi de salmão"]}'
+    - entrada: "onde fica o banheiro do shopping?"
+      saida: '{"intencao": "DESCONHECIDO", "confianca": 0.95, "itens": [], "itens_invalidos": []}'
+    - entrada: "tira a coca-cola por favor"
+      saida: '{"intencao": "REMOVER_ITEM", "confianca": 0.95, "itens": [{"produto_id": 6, "nome": "Coca-Cola Lata 350ml", "quantidade": 1}], "itens_invalidos": []}'
+    - entrada: "pode fechar a conta"
+      saida: '{"intencao": "PEDIR_CONTA", "confianca": 0.98, "itens": [], "itens_invalidos": []}'
+
+# --- 4. Fallback Heurístico (Apenas se o SLM estiver inacessível) ---
+fallback:
+  habilitado: true
+  fuzzy_cutoff: 0.6
+  confianca_padrao: 0.85

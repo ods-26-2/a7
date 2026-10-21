@@ -57,3 +57,27 @@ def test_intencao_chamar_atendimento(nlu_pipeline):
     resultado = nlu_pipeline.on_message_received(evento)
 
     assert resultado["intencao"] == "CHAMAR_ATENDIMENTO"
+
+
+def test_slm_carregamento_config_yaml():
+    from src.modulo_nlu.slm_classifier import SLMIntentClassifier
+    slm = SLMIntentClassifier(config_path="config/slm_config.yaml")
+
+    assert slm.model_name is not None
+    assert "llama3.2" in slm.model_name or slm.model_name == "llama3.2:1b"
+    assert slm.endpoint_url == "http://127.0.0.1:11434"
+    assert len(slm.intencoes) >= 6
+    assert slm.catalogo_repo is not None
+    assert len(slm.catalogo_repo.produtos) > 0
+
+
+def test_slm_classificacao_multiplos_itens():
+    from src.modulo_nlu.slm_classifier import SLMIntentClassifier
+    slm = SLMIntentClassifier(config_path="config/slm_config.yaml")
+
+    res = slm.classify("eu quero um x-beico e uma batata frita")
+    assert res["intencao"] == "ADICIONAR_ITEM"
+    assert len(res["itens"]) == 2
+    nomes = [item["nome"] for item in res["itens"]]
+    assert "X-Bacon" in nomes
+    assert "Batata Frita Padrão" in nomes
