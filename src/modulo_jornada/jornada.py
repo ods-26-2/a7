@@ -134,15 +134,71 @@ class OrderSession:
 
         intencao = nlu_payload.get("intencao")
         entidades = nlu_payload.get("entidades", {})
+        itens = nlu_payload.get("itens") or entidades.get("itens", [])
+        repo = catalogo_repo or CatalogoRepository(json_path="data/cardapio_mock.json")
 
         # 2. Intenção ADICIONAR_ITEM
         if intencao == "ADICIONAR_ITEM":
+            # Caso 2A: Lista de múltiplos itens detectados pelo SLM
+            if itens:
+                itens_adicionados = []
+                itens_indisponiveis = list(nlu_payload.get("itens_invalidos", []))
+
+                for it in itens:
+                    p_id = it.get("produto_id")
+                    p_nome = it.get("nome") or it.get("produto")
+                    p_qtd = it.get("quantidade", 1)
+
+                    produto = None
+                    if p_id:
+                        for p in repo.produtos:
+                            if p.id == p_id:
+                                produto = p
+                                break
+                    if not produto and p_nome:
+                        produto = repo.buscar_produto_com_fuzzy(p_nome)
+
+                    if not produto or not produto.disponibilidade:
+                        itens_indisponiveis.append(p_nome or f"ID {p_id}")
+                    else:
+                        cart_item = CartItem(
+                            produto_id=produto.id,
+                            nome=produto.nome,
+                            quantidade=p_qtd,
+                            preco_unitario=produto.preco,
+                        )
+                        self.cart.add_item(cart_item)
+                        itens_adicionados.append(f"{p_qtd}x {produto.nome}")
+
+                if itens_indisponiveis:
+                    self.state = SessionState.PENDING
+                    self.pending_reason = f"Item(ns) indisponível(is) ou não encontrado(s): {', '.join(itens_indisponiveis)}."
+                    msg = (
+                        f"Adicionado: {', '.join(itens_adicionados)}. Atenção: {self.pending_reason}"
+                        if itens_adicionados else self.pending_reason
+                    )
+                    return {
+                        "origem": self.origem,
+                        "estado": self.state.name,
+                        "mensagem": msg,
+                        "carrinho": self.cart.to_dict(),
+                    }
+
+                if itens_adicionados:
+                    self._reset_pending()
+                    return {
+                        "origem": self.origem,
+                        "estado": self.state.name,
+                        "mensagem": f"Item(ns) adicionado(s): {', '.join(itens_adicionados)}.",
+                        "carrinho": self.cart.to_dict(),
+                    }
+
+            # Caso 2B: Formato clássico de produto único (retrocompatibilidade)
             disponivel = entidades.get("disponivel")
             produto_id = entidades.get("produto_id")
             produto_nome = entidades.get("produto")
             quantidade = entidades.get("quantidade", 1)
 
-            # Trava de indisponibilidade ou item não identificado (RF07)
             if not disponivel or produto_id is None:
                 self.state = SessionState.PENDING
                 self.pending_reason = (
@@ -156,8 +212,6 @@ class OrderSession:
                     "carrinho": None,
                 }
 
-            # Busca preço no catálogo
-            repo = catalogo_repo or CatalogoRepository(json_path="data/cardapio_mock.json")
             produto = repo.buscar_produto(produto_nome)
             if not produto:
                 self.state = SessionState.PENDING
@@ -182,6 +236,68 @@ class OrderSession:
                 "origem": self.origem,
                 "estado": self.state.name,
                 "mensagem": f"Item '{produto.nome}' adicionado ({quantidade}x) na origem '{self.origem}'.",
+                "carrinho": self.cart.to_dict(),
+            }
+
+        # 3. Intenção REMOVER_ITEM
+        if intencao == "REMOVER_ITEM":
+            itens_removidos = []
+            for it in (itens or ([entidades] if entidades.get("produto_id") else [])):
+                p_id = it.get("produto_id")
+                p_nome = it.get("nome") or it.get("produto")
+                p_qtd = it.get("quantidade", 1)
+
+                produto = None
+                if p_id:
+                    for p in repo.produtos:
+                        if p.id == p_id:
+                            produto = p
+                            break
+                if not produto and p_nome:
+                    produto = repo.buscar_produto_com_fuzzy(p_nome)
+
+                if produto and self.cart.remove_item(produto.id, quantidade=p_qtd):
+                    itens_removidos.append(f"{p_qtd}x {produto.nome}")
+
+            if itens_removidos:
+                return {
+                    "origem": self.origem,
+                    "estado": self.state.name,
+                    "mensagem": f"Item(ns) removido(s): {', '.join(itens_removidos)}.",
+                    "carrinho": self.cart.to_dict(),
+                }
+            return {
+                "origem": self.origem,
+                "estado": self.state.name,
+                "mensagem": "Nenhum dos itens informados foi encontrado no carrinho para remoção.",
+                "carrinho": self.cart.to_dict(),
+            }
+
+        # 4. Intenção CANCELAR_PEDIDO
+        if intencao == "CANCELAR_PEDIDO":
+            self.cart.clear()
+            self._reset_pending()
+            return {
+                "origem": self.origem,
+                "estado": self.state.name,
+                "mensagem": f"Pedido cancelado e carrinho esvaziado para a origem '{self.origem}'.",
+                "carrinho": self.cart.to_dict(),
+            }
+
+        # 5. Intenção CONFIRMAR_PEDIDO
+        if intencao == "CONFIRMAR_PEDIDO":
+            if not self.cart.itens:
+                return {
+                    "origem": self.origem,
+                    "estado": self.state.name,
+                    "mensagem": "Não é possível confirmar um pedido com carrinho vazio.",
+                    "carrinho": self.cart.to_dict(),
+                }
+            self.state = SessionState.COMPLETED
+            return {
+                "origem": self.origem,
+                "estado": self.state.name,
+                "mensagem": f"Pedido confirmado com sucesso! Total: R$ {self.cart.total:.2f}.",
                 "carrinho": self.cart.to_dict(),
             }
 
