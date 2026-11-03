@@ -7,11 +7,14 @@ class IntentClassifier:
     def __init__(self, catalogo_repo: Optional[CatalogoRepository] = None):
         self.slot_extractor = SlotExtractor(catalogo_repo=catalogo_repo)
         self.rules = [
+            (r"\b(tira|tirar|remove|remover|exclui|excluir|retira|retirar)\b", "REMOVER_ITEM"),
+            (r"\b(cancela|cancelar|desisto|desiste|zerar|limpa|limpar)\b.*\b(pedido|carrinho)?\b", "CANCELAR_PEDIDO"),
+            (r"\b(confirma|confirmar|confirmo|confirmado|pode confirmar|pode fechar)\b|\b(pedido confirmado|pedido confirmad[ooa])\b", "CONFIRMAR_PEDIDO"),
             (r"\b(quero|que era|me vê|me ve|vou pedir|adiciona|adicionar|traz|pede)\b", "ADICIONAR_ITEM"),
             (r"\b(chama|chamada|atendente|garçom|garcom|ajuda)\b", "CHAMAR_ATENDIMENTO"),
             (r"\b(conta|fechar|pagamento|pagar|nota)\b", "PEDIR_CONTA")
         ]
-        self.stopwords_regex = r"\b(quero|que\s+era|me|vê|ve|vou|pedir|adiciona|adicionar|traz|pede|por|favor|gostaria|de)\b"
+        self.stopwords_regex = r"\b(quero|que\s+era|me|vê|ve|vou|pedir|adiciona|adicionar|traz|pede|tira|tirar|remove|remover|exclui|excluir|retira|retirar|por|favor|gostaria|de|o|a|os|as)\b"
 
     def classify(self, text: str) -> Dict[str, Any]:
         text_clean = text.strip()

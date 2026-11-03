@@ -52,6 +52,31 @@ def test_quantidade_maior_com_limite(nlu_pipeline):
     assert resultado["entidades"]["quantidade"] == 15
     assert resultado["entidades"]["produto_id"] == 1
 
+def test_intencoes_remover_confirmar_cancelar(nlu_pipeline):
+    remover = nlu_pipeline.on_message_received({"texto": "tira o x-salada", "confianca": 0.95})
+    confirmar = nlu_pipeline.on_message_received({"texto": "confirmo o pedido", "confianca": 0.95})
+    cancelar = nlu_pipeline.on_message_received({"texto": "cancela meu pedido", "confianca": 0.95})
+
+    assert remover["intencao"] == "REMOVER_ITEM"
+    assert remover["entidades"]["produto_id"] == 1
+
+    remover_um = nlu_pipeline.on_message_received({"texto": "tira uma x-salada", "confianca": 0.95})
+    assert remover_um["intencao"] == "REMOVER_ITEM"
+    assert remover_um["entidades"]["produto_id"] == 1
+    assert remover_um["entidades"]["quantidade"] == 1
+    assert confirmar["intencao"] == "CONFIRMAR_PEDIDO"
+    assert cancelar["intencao"] == "CANCELAR_PEDIDO"
+
+
+def test_variacao_dinamica_vinculada_ao_produto(nlu_pipeline):
+    resultado = nlu_pipeline.on_message_received({
+        "texto": "quero um x-salada sem cebola",
+        "confianca": 0.95,
+    })
+    assert resultado["entidades"]["produto_id"] == 1
+    assert resultado["entidades"]["variacoes"] == ["sem cebola"]
+
+
 def test_intencao_chamar_atendimento(nlu_pipeline):
     evento = {"texto": "pode chamar o garçom", "confianca": 0.88}
     resultado = nlu_pipeline.on_message_received(evento)

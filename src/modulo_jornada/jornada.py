@@ -27,6 +27,8 @@ class SessionState(Enum):
     """Representa os estados possíveis da sessão de pedido."""
     ACTIVE = auto()
     PENDING = auto()
+    CONFIRMADO = auto()
+    CONFIRMED = CONFIRMADO
     COMPLETED = auto()
 
 
@@ -36,6 +38,7 @@ class CartItem:
     nome: str
     quantidade: int
     preco_unitario: float
+    variacoes: List[str] = field(default_factory=list)
     subtotal: float = field(init=False)
 
     def __post_init__(self) -> None:
@@ -51,8 +54,10 @@ class Cart:
 
     def add_item(self, item: CartItem) -> None:
         """Adiciona ou acumula quantidade do mesmo produto e atualiza total."""
+        item_variacoes = sorted(set(item.variacoes))
+        item.variacoes = item_variacoes
         for existing in self.itens:
-            if existing.produto_id == item.produto_id:
+            if existing.produto_id == item.produto_id and sorted(set(existing.variacoes)) == item_variacoes:
                 existing.quantidade += item.quantidade
                 existing.subtotal = round(existing.quantidade * existing.preco_unitario, 2)
                 break
@@ -88,6 +93,7 @@ class Cart:
                     "nome": i.nome,
                     "quantidade": i.quantidade,
                     "preco_unitario": i.preco_unitario,
+                    "variacoes": i.variacoes,
                     "subtotal": i.subtotal,
                 }
                 for i in self.itens
@@ -166,6 +172,7 @@ class OrderSession:
                             nome=produto.nome,
                             quantidade=p_qtd,
                             preco_unitario=produto.preco,
+                            variacoes=list(it.get("variacoes", [])),
                         )
                         self.cart.add_item(cart_item)
                         itens_adicionados.append(f"{p_qtd}x {produto.nome}")
@@ -228,6 +235,7 @@ class OrderSession:
                 nome=produto.nome,
                 quantidade=quantidade,
                 preco_unitario=produto.preco,
+                variacoes=list(entidades.get("variacoes", [])),
             )
             self.cart.add_item(item)
             self._reset_pending()
@@ -276,7 +284,8 @@ class OrderSession:
         # 4. Intenção CANCELAR_PEDIDO
         if intencao == "CANCELAR_PEDIDO":
             self.cart.clear()
-            self._reset_pending()
+            self.state = SessionState.ACTIVE
+            self.pending_reason = None
             return {
                 "origem": self.origem,
                 "estado": self.state.name,
@@ -293,7 +302,7 @@ class OrderSession:
                     "mensagem": "Não é possível confirmar um pedido com carrinho vazio.",
                     "carrinho": self.cart.to_dict(),
                 }
-            self.state = SessionState.COMPLETED
+            self.state = SessionState.CONFIRMED
             return {
                 "origem": self.origem,
                 "estado": self.state.name,
@@ -329,6 +338,21 @@ class SessionManager:
     def __init__(self, catalogo_repo: Optional[CatalogoRepository] = None):
         self.catalogo_repo = catalogo_repo or CatalogoRepository(json_path="data/cardapio_mock.json")
         self.sessions: Dict[str, OrderSession] = {}
+        self._listeners: List[Any] = []
+
+    def subscribe(self, listener: Any) -> Any:
+        """Registra um observador para cada resultado processado pela jornada."""
+        if listener not in self._listeners:
+            self._listeners.append(listener)
+        return listener
+
+    def unsubscribe(self, listener: Any) -> None:
+        if listener in self._listeners:
+            self._listeners.remove(listener)
+
+    def _notify_listeners(self, payload: Dict[str, Any]) -> None:
+        for listener in list(self._listeners):
+            listener(payload)
 
     def get_or_create_session(self, origem: str) -> OrderSession:
         """Recupera a sessão ativa para a origem informada ou instancia uma nova."""
@@ -343,7 +367,16 @@ class SessionManager:
         # A origem pode vir como parâmetro explícito ou dentro do próprio payload (AudioEventSubscriber)
         origem_id = origem or nlu_payload.get("origem", "default")
         session = self.get_or_create_session(origem_id)
-        return session.handle_nlu_result(nlu_payload, catalogo_repo=self.catalogo_repo)
+        result = session.handle_nlu_result(nlu_payload, catalogo_repo=self.catalogo_repo)
+        broadcast_payload = {
+            **result,
+            "pending_reason": session.pending_reason,
+            "created_at": session.created_at,
+            "last_updated": session.last_updated,
+            "carrinho": session.cart.to_dict(),
+        }
+        self._notify_listeners(broadcast_payload)
+        return result
 
     def obter_sessao(self, origem: str) -> Optional[OrderSession]:
         return self.sessions.get(origem)

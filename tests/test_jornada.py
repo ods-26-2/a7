@@ -104,6 +104,88 @@ def test_duvida_explicita_bloqueia_apenas_a_mesa_afetada(session_manager, nlu_su
     assert res_2["carrinho"] is not None
     assert len(res_2["carrinho"]["itens"]) == 1
 
+def test_remover_decrementa_quantidade_e_depois_exclui(session_manager, nlu_subscriber):
+    origem = "mesa_decremento"
+
+    adicionar = nlu_subscriber.on_message_received({
+        "payload": {"origem": origem, "texto_transcrito": "quero duas x-saladas", "confianca_geral": 0.95}
+    })
+    resultado = session_manager.handle_nlu_result(adicionar)
+    assert resultado["carrinho"]["itens"][0]["quantidade"] == 2
+    assert resultado["carrinho"]["total"] == 45.8
+
+    remover_um = nlu_subscriber.on_message_received({
+        "payload": {"origem": origem, "texto_transcrito": "tira uma x-salada", "confianca_geral": 0.95}
+    })
+    resultado = session_manager.handle_nlu_result(remover_um)
+    assert resultado["carrinho"]["itens"][0]["quantidade"] == 1
+    assert resultado["carrinho"]["itens"][0]["subtotal"] == 22.9
+    assert resultado["carrinho"]["total"] == 22.9
+
+    remover_tudo = nlu_subscriber.on_message_received({
+        "payload": {"origem": origem, "texto_transcrito": "tira o x-salada", "confianca_geral": 0.95}
+    })
+    resultado = session_manager.handle_nlu_result(remover_tudo)
+    assert resultado["carrinho"]["itens"] == []
+    assert resultado["carrinho"]["total"] == 0.0
+
+
+def test_remover_confirmar_cancelar_e_variacoes(session_manager, nlu_subscriber):
+    origem = "mesa_card"
+
+    adicionar = nlu_subscriber.on_message_received({
+        "payload": {
+            "origem": origem,
+            "texto_transcrito": "quero um x-salada sem cebola",
+            "confianca_geral": 0.95,
+        }
+    })
+    resultado = session_manager.handle_nlu_result(adicionar)
+    assert resultado["carrinho"]["total"] == 22.9
+    assert resultado["carrinho"]["itens"][0]["variacoes"] == ["sem cebola"]
+
+    remover = nlu_subscriber.on_message_received({
+        "payload": {
+            "origem": origem,
+            "texto_transcrito": "tira o x-salada",
+            "confianca_geral": 0.95,
+        }
+    })
+    resultado = session_manager.handle_nlu_result(remover)
+    assert resultado["carrinho"]["total"] == 0.0
+    assert resultado["carrinho"]["itens"] == []
+
+    adicionar = nlu_subscriber.on_message_received({
+        "payload": {
+            "origem": origem,
+            "texto_transcrito": "quero um x-salada",
+            "confianca_geral": 0.95,
+        }
+    })
+    session_manager.handle_nlu_result(adicionar)
+
+    confirmar = nlu_subscriber.on_message_received({
+        "payload": {
+            "origem": origem,
+            "texto_transcrito": "confirmo o pedido",
+            "confianca_geral": 0.95,
+        }
+    })
+    resultado = session_manager.handle_nlu_result(confirmar)
+    assert resultado["estado"] == "CONFIRMADO"
+
+    cancelar = nlu_subscriber.on_message_received({
+        "payload": {
+            "origem": origem,
+            "texto_transcrito": "cancela meu pedido",
+            "confianca_geral": 0.95,
+        }
+    })
+    resultado = session_manager.handle_nlu_result(cancelar)
+    assert resultado["estado"] == "ACTIVE"
+    assert resultado["carrinho"]["total"] == 0.0
+
+
 def test_listar_sessoes_ativas(session_manager, nlu_subscriber):
     evento = {
         "payload": {
