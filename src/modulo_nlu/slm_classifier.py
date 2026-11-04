@@ -38,7 +38,8 @@ class SLMIntentClassifier:
         config_path: str = "config/slm_config.yaml",
         intencoes_json_path: Optional[str] = None,
         catalogo_repo: Optional[CatalogoRepository] = None,
-        model_name_or_path: Optional[str] = None
+        model_name_or_path: Optional[str] = None,
+        perfil: Optional[str] = None,
     ):
         self.config_path = config_path
         self.config = self._carregar_config(config_path)
@@ -56,13 +57,23 @@ class SLMIntentClassifier:
         else:
             self.catalogo_repo = CatalogoRepository(json_path=caminho_catalogo_resolvido)
 
-        # Configurações do modelo
-        modelo_cfg = self.config.get("modelo", {})
+        # Resolução do perfil ativo do modelo
+        perfis_dict = self.config.get("perfis", {})
+        perfil_chave = perfil or self.config.get("modelo_ativo")
+        if perfil_chave and isinstance(perfis_dict, dict) and perfil_chave in perfis_dict:
+            modelo_cfg = perfis_dict[perfil_chave]
+            self.perfil_ativo = perfil_chave
+        else:
+            modelo_cfg = self.config.get("modelo", {})
+            self.perfil_ativo = perfil_chave or "default"
+
+        self.provedor = str(modelo_cfg.get("provedor", "ollama")).lower()
         self.model_name = model_name_or_path or modelo_cfg.get("nome", "llama3.2:1b")
         self.endpoint_url = modelo_cfg.get("endpoint_url", "http://127.0.0.1:11434").rstrip("/")
         self.temperatura = float(modelo_cfg.get("temperatura", 0.0))
         self.max_tokens = int(modelo_cfg.get("max_tokens", 150))
         self.timeout_segundos = float(modelo_cfg.get("timeout_segundos", 8.0))
+        self.structured_outputs = bool(modelo_cfg.get("structured_outputs", True))
 
         self.slot_extractor = SlotExtractor(catalogo_repo=self.catalogo_repo)
         
@@ -96,13 +107,35 @@ class SLMIntentClassifier:
                 print(f"[Aviso] Falha ao ler YAML '{resolved}': {e}. Usando configuração padrão.")
 
         return {
+            "modelo_ativo": "llama3.2_ollama",
+            "perfis": {
+                "llama3.2_ollama": {
+                    "nome": "llama3.2:1b",
+                    "provedor": "ollama",
+                    "endpoint_url": "http://127.0.0.1:11434",
+                    "temperatura": 0.0,
+                    "max_tokens": 150,
+                    "timeout_segundos": 8.0,
+                    "structured_outputs": True,
+                },
+                "bonsai2_27b": {
+                    "nome": "Ternary-Bonsai-2-27B",
+                    "provedor": "llama_server",
+                    "endpoint_url": "http://127.0.0.1:8080",
+                    "temperatura": 0.0,
+                    "max_tokens": 150,
+                    "timeout_segundos": 15.0,
+                    "structured_outputs": True,
+                },
+            },
             "modelo": {
                 "nome": "llama3.2:1b",
                 "provedor": "ollama",
                 "endpoint_url": "http://127.0.0.1:11434",
                 "temperatura": 0.0,
                 "max_tokens": 150,
-                "timeout_segundos": 8.0
+                "timeout_segundos": 8.0,
+                "structured_outputs": True
             },
             "caminhos": {
                 "catalogo_json": "data/cardapio_mock.json",
@@ -149,32 +182,77 @@ class SLMIntentClassifier:
 
     def _inicializar_driver_slm(self) -> None:
         """
-        Verifica se o servidor Ollama local está ativo e se o modelo configurado está carregado.
+        Verifica se o servidor configurado (Ollama ou llama-server) está ativo.
         """
         import urllib.request
-        try:
-            url = f"{self.endpoint_url}/api/tags"
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=1.5) as resp:
-                if resp.status == 200:
-                    dados = json.loads(resp.read().decode("utf-8"))
-                    modelos = [m.get("name") for m in dados.get("models", [])]
-                    for m in modelos:
-                        if self.model_name in m or "llama3.2" in m:
+        if self.provedor == "ollama":
+            try:
+                url = f"{self.endpoint_url}/api/tags"
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    if resp.status == 200:
+                        dados = json.loads(resp.read().decode("utf-8"))
+                        modelos = [m.get("name") for m in dados.get("models", [])]
+                        
+                        # 1. Tenta correspondência exata ou parcial do modelo configurado
+                        candidato = None
+                        for m in modelos:
+                            if self.model_name and (self.model_name == m or self.model_name in m):
+                                candidato = m
+                                break
+                        
+                        # 2. Se não encontrar o configurado, tenta algum com "llama3.2" ou o primeiro disponível
+                        if not candidato:
+                            for m in modelos:
+                                if "llama3.2" in m:
+                                    candidato = m
+                                    break
+                        if not candidato and modelos:
+                            candidato = modelos[0]
+
+                        if candidato:
                             self.model_driver = "ollama"
-                            self.model_name = m
-                            break
-                    if not self.model_driver and modelos:
-                        self.model_driver = "ollama"
-                        self.model_name = modelos[0]
-        except Exception:
-            self.model_driver = None
+                            self.model_name = candidato
+            except Exception:
+                self.model_driver = None
+        elif self.provedor in ["llama_server", "openai", "bonsai"]:
+            try:
+                # Testa se o llama-server está responsivo em /health ou /v1/models
+                url = f"{self.endpoint_url}/health"
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    if resp.status in [200, 204]:
+                        self.model_driver = "llama_server"
+            except Exception:
+                try:
+                    url_models = f"{self.endpoint_url}/v1/models"
+                    req_models = urllib.request.Request(url_models, method="GET")
+                    with urllib.request.urlopen(req_models, timeout=1.5) as resp_models:
+                        if resp_models.status == 200:
+                            self.model_driver = "llama_server"
+                except Exception:
+                    self.model_driver = None
+
+        if self.model_driver is None:
+            if self.provedor in ["llama_server", "openai", "bonsai"]:
+                print(f"[Aviso NLU] Servidor Bonsai/llama-server ({self.endpoint_url}) está offline. Inicie com 'BONSAI_NGL=20 ./scripts/start_llama_server.sh' em outro terminal.")
+            else:
+                print(f"[Aviso NLU] Servidor Ollama ({self.endpoint_url}) está offline. Inicie com 'ollama serve' em outro terminal.")
 
     def _obter_resumo_cardapio(self) -> str:
         """Gera string resumida de ID e Nome dos produtos do cardápio para o prompt."""
         if not self.catalogo_repo or not self.catalogo_repo.produtos:
             return ""
         return "\n".join([f"- ID {p.id}: {p.nome}" for p in self.catalogo_repo.produtos])
+
+    def _obter_system_prompt(self) -> str:
+        """Gera o prompt de sistema idêntico ao utilizado no fine-tuning e na configuração."""
+        resumo_cardapio = self._obter_resumo_cardapio()
+        return (
+            "Você é o motor de NLU de uma lanchonete/restaurante de varejo.\n"
+            "Classifique a intenção do cliente e extraia os itens do cardápio oficial ESTRITAMENTE em JSON puro.\n\n"
+            f"CARDÁPIO OFICIAL:\n{resumo_cardapio}"
+        )
 
     def montar_prompt(self, texto_usuario: str) -> str:
         """
@@ -220,60 +298,281 @@ FALA DO CLIENTE:
 RESPOSTA JSON:"""
         return prompt
 
+    def _gerar_json_schema(self) -> Dict[str, Any]:
+        """
+        Constrói dinamicamente o JSON Schema estrito para Grammar-based Decoding (GBNF)
+        a partir das intenções cadastradas no catálogo JSON.
+        """
+        nomes_intencoes = [item["nome"] for item in self.intencoes if "nome" in item]
+        if "DESCONHECIDO" not in nomes_intencoes:
+            nomes_intencoes.append("DESCONHECIDO")
+
+        return {
+            "type": "object",
+            "properties": {
+                "intencao": {
+                    "type": "string",
+                    "enum": nomes_intencoes,
+                    "description": "Intenção canônica classificada a partir da fala do cliente",
+                },
+                "confianca": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Grau de confiança da classificação entre 0.0 e 1.0",
+                },
+                "itens": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "produto_id": {
+                                "type": "integer",
+                                "description": "ID numérico oficial do produto no cardápio",
+                            },
+                            "nome": {
+                                "type": "string",
+                                "description": "Nome oficial do produto no cardápio",
+                            },
+                            "quantidade": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20,
+                                "description": "Quantidade inteira solicitada do item",
+                            },
+                            "variacoes": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Variações do produto solicitadas (ex: lata, zero, grande)",
+                            },
+                        },
+                        "required": ["produto_id", "nome", "quantidade"],
+                    },
+                },
+                "itens_invalidos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Lista de produtos mencionados que não existem no cardápio oficial",
+                },
+            },
+            "required": ["intencao", "confianca", "itens", "itens_invalidos"],
+        }
+
+    def _validar_e_sanitizar_resposta(
+        self, parsed: Dict[str, Any], nomes_validos: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Valida e sanitiza o dicionário retornado pelo SLM para garantir conformidade
+        estrita de tipos antes de enviar ao gestor de sessão.
+        """
+        if not isinstance(parsed, dict):
+            parsed = {}
+
+        intencao = str(parsed.get("intencao", "")).strip().upper()
+        try:
+            confianca = float(parsed.get("confianca", 0.95))
+            confianca = max(0.0, min(1.0, confianca))
+        except (ValueError, TypeError):
+            confianca = 0.95
+
+        itens_brutos = parsed.get("itens", [])
+        if not isinstance(itens_brutos, list):
+            itens_brutos = []
+
+        itens_sanitizados = []
+        for it in itens_brutos:
+            if not isinstance(it, dict):
+                continue
+            try:
+                prod_id = int(it.get("produto_id", 0))
+            except (ValueError, TypeError):
+                prod_id = 0
+            nome_prod = str(it.get("nome", "")).strip()
+            try:
+                qtd = int(it.get("quantidade", 1))
+                qtd = max(1, min(20, qtd))
+            except (ValueError, TypeError):
+                qtd = 1
+
+            variacoes_raw = it.get("variacoes", [])
+            if isinstance(variacoes_raw, list):
+                variacoes = [str(v).strip() for v in variacoes_raw if str(v).strip()]
+            else:
+                variacoes = []
+
+            if prod_id > 0 or nome_prod:
+                item_dict: Dict[str, Any] = {
+                    "produto_id": prod_id,
+                    "nome": nome_prod,
+                    "quantidade": qtd,
+                }
+                if variacoes:
+                    item_dict["variacoes"] = variacoes
+                itens_sanitizados.append(item_dict)
+
+        invalidos_brutos = parsed.get("itens_invalidos", [])
+        if isinstance(invalidos_brutos, list):
+            itens_invalidos = [str(inv).strip() for inv in invalidos_brutos if str(inv).strip()]
+        else:
+            itens_invalidos = []
+
+        # Validação e normalização da intenção contra o enum permitido
+        if intencao not in nomes_validos:
+            for nv in nomes_validos:
+                if intencao and (nv in intencao or intencao in nv):
+                    intencao = nv
+                    break
+            else:
+                intencao = "ADICIONAR_ITEM" if itens_sanitizados else "DESCONHECIDO"
+
+        return {
+            "intencao": intencao,
+            "confianca": confianca,
+            "itens": itens_sanitizados,
+            "itens_invalidos": itens_invalidos,
+        }
+
     def invocar_slm(self, prompt: str, texto_usuario: str = "") -> Dict[str, Any]:
         """
-        Executa a inferência no Llama/Ollama local via API REST.
+        Executa a inferência no Llama/Ollama local via API REST com Structured Outputs (JSON Schema).
         Caso o Ollama esteja offline, executa o fallback algorítmico dinâmico (Fuzzy Matching).
         """
         nomes_validos = [item["nome"] for item in self.intencoes] + ["DESCONHECIDO"]
 
         if self.model_driver == "ollama":
+            import urllib.error
             import urllib.request
-            try:
-                payload_req = {
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "format": "json",
-                    "options": {
-                        "temperature": self.temperatura,
-                        "num_predict": self.max_tokens
+
+            formato_preferido: Any = (
+                self._gerar_json_schema() if self.structured_outputs else "json"
+            )
+            formatos_tentativa = (
+                [formato_preferido, "json"]
+                if isinstance(formato_preferido, dict)
+                else ["json"]
+            )
+
+            system_prompt = self._obter_system_prompt()
+            user_prompt = (
+                f'FALA DO CLIENTE:\n"{texto_usuario}"\n\nRESPOSTA JSON:'
+                if texto_usuario
+                else prompt
+            )
+
+            for formato_atual in formatos_tentativa:
+                try:
+                    payload_req = {
+                        "model": self.model_name,
+                        "system": system_prompt,
+                        "prompt": user_prompt,
+                        "stream": False,
+                        "format": formato_atual,
+                        "options": {
+                            "temperature": self.temperatura,
+                            "num_predict": self.max_tokens,
+                        },
                     }
+                    req = urllib.request.Request(
+                        f"{self.endpoint_url}/api/generate",
+                        data=json.dumps(payload_req).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=self.timeout_segundos) as resp:
+                        if resp.status == 200:
+                            res_json = json.loads(resp.read().decode("utf-8"))
+                            texto_resposta = res_json.get("response", "").strip()
+                            parsed = json.loads(texto_resposta)
+                            sanitizado = self._validar_e_sanitizar_resposta(
+                                parsed, nomes_validos
+                            )
+                            modo_fmt = (
+                                "JSON Schema Estrito"
+                                if isinstance(formato_atual, dict)
+                                else "JSON"
+                            )
+                            sanitizado["justificativa"] = (
+                                f"Inferência realizada pelo modelo {self.model_name} via Ollama ({modo_fmt})"
+                            )
+                            return sanitizado
+                except urllib.error.HTTPError as http_err:
+                    # Se versão legada do Ollama rejeitar objeto de schema com HTTP 400, tenta 'json'
+                    if http_err.code == 400 and isinstance(formato_atual, dict):
+                        continue
+                    break
+                except Exception:
+                    break
+
+        elif self.model_driver in ["llama_server", "openai", "bonsai"]:
+            import urllib.error
+            import urllib.request
+
+            schema = self._gerar_json_schema() if self.structured_outputs else None
+            # 1. Tenta endpoint nativo /completion do llama.cpp com json_schema
+            try:
+                payload_req: Dict[str, Any] = {
+                    "prompt": prompt,
+                    "temperature": self.temperatura,
+                    "n_predict": self.max_tokens,
                 }
+                if schema:
+                    payload_req["json_schema"] = schema
+
                 req = urllib.request.Request(
-                    f"{self.endpoint_url}/api/generate",
+                    f"{self.endpoint_url}/completion",
                     data=json.dumps(payload_req).encode("utf-8"),
                     headers={"Content-Type": "application/json"},
-                    method="POST"
+                    method="POST",
                 )
                 with urllib.request.urlopen(req, timeout=self.timeout_segundos) as resp:
                     if resp.status == 200:
                         res_json = json.loads(resp.read().decode("utf-8"))
-                        texto_resposta = res_json.get("response", "").strip()
+                        texto_resposta = res_json.get("content", "").strip()
                         parsed = json.loads(texto_resposta)
-                        intencao = str(parsed.get("intencao", "")).strip().upper()
-                        confianca = float(parsed.get("confianca", 0.95))
-                        itens = parsed.get("itens", [])
-                        itens_invalidos = parsed.get("itens_invalidos", [])
-
-                        # Validação e normalização da intenção
-                        if intencao not in nomes_validos:
-                            for nv in nomes_validos:
-                                if nv in intencao or intencao in nv:
-                                    intencao = nv
-                                    break
-                            else:
-                                intencao = "ADICIONAR_ITEM" if itens else "DESCONHECIDO"
-
-                        return {
-                            "intencao": intencao,
-                            "confianca": confianca,
-                            "itens": itens,
-                            "itens_invalidos": itens_invalidos,
-                            "justificativa": f"Inferência realizada pelo modelo {self.model_name} via Ollama"
-                        }
+                        sanitizado = self._validar_e_sanitizar_resposta(parsed, nomes_validos)
+                        modo_fmt = "JSON Schema Estrito" if schema else "Livre"
+                        sanitizado["justificativa"] = (
+                            f"Inferência realizada pelo modelo {self.model_name} via llama-server ({modo_fmt})"
+                        )
+                        return sanitizado
             except Exception:
-                pass
+                # 2. Tenta fallback para /v1/chat/completions (OpenAI compatível)
+                try:
+                    payload_chat: Dict[str, Any] = {
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": self.temperatura,
+                        "max_tokens": self.max_tokens,
+                    }
+                    if schema:
+                        payload_chat["response_format"] = {
+                            "type": "json_object",
+                            "schema": schema,
+                        }
+
+                    req_chat = urllib.request.Request(
+                        f"{self.endpoint_url}/v1/chat/completions",
+                        data=json.dumps(payload_chat).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req_chat, timeout=self.timeout_segundos) as resp_chat:
+                        if resp_chat.status == 200:
+                            res_chat = json.loads(resp_chat.read().decode("utf-8"))
+                            choices = res_chat.get("choices", [])
+                            if choices:
+                                texto_resposta = (
+                                    choices[0].get("message", {}).get("content", "").strip()
+                                )
+                                parsed = json.loads(texto_resposta)
+                                sanitizado = self._validar_e_sanitizar_resposta(
+                                    parsed, nomes_validos
+                                )
+                                sanitizado["justificativa"] = (
+                                    f"Inferência realizada pelo modelo {self.model_name} via llama-server (/v1/chat/completions)"
+                                )
+                                return sanitizado
+                except Exception:
+                    pass
 
         # ----------------------------------------------------------------------
         # FALLBACK ALGORÍTMICO DINÂMICO (Sem nenhum dicionário manual/estático!)
@@ -303,35 +602,59 @@ RESPOSTA JSON:"""
             else:
                 intencao_detectada = "DESCONHECIDO"
 
-        # 2. Busca Fuzzy dinâmica pura diretamente contra a lista de produtos do cardápio
+        # 2. Busca Fuzzy dinâmica por segmentos da frase contra o cardápio
         itens_extraidos = []
         fuzzy_cutoff = float(self.config.get("fallback", {}).get("fuzzy_cutoff", 0.6))
         
         if intencao_detectada in ["ADICIONAR_ITEM", "REMOVER_ITEM", "CONSULTAR_CARDAPIO"] and self.catalogo_repo:
-            for produto in self.catalogo_repo.produtos:
-                prod_nome_lower = produto.nome.lower()
-                # Verifica casamento direto ou por palavras principais do produto
-                palavras_prod = [p for p in prod_nome_lower.split() if len(p) > 3]
-                match_encontrado = prod_nome_lower in fala_lower or any(p in fala_lower for p in palavras_prod)
-                
-                # Se não casou por palavra, testa similaridade fuzzy contra o cardápio
-                if not match_encontrado:
-                    prod_fuzzy = self.catalogo_repo.buscar_produto_com_fuzzy(fala_lower, cutoff=fuzzy_cutoff)
-                    if prod_fuzzy and prod_fuzzy.id == produto.id:
-                        match_encontrado = True
+            segmentos = [s.strip() for s in re.split(r"\s+e\s+|,\s*", fala_lower) if s.strip()]
+            for seg in segmentos:
+                seg_limpo = re.sub(
+                    r"\b(eu|quero|queria|me|vê|ve|gostaria|de|adiciona|bota|manda|pede|desejo|por|favor|um|uma|dois|duas|três|tres|\d+)\b",
+                    " ",
+                    seg,
+                )
+                seg_limpo = re.sub(r"\s+", " ", seg_limpo).strip()
+                if not seg_limpo:
+                    continue
 
-                if match_encontrado and not any(it["produto_id"] == produto.id for it in itens_extraidos):
-                    # Tenta extrair quantidade adjacente
+                produto_encontrado = None
+                # Tenta casamento exato de nome primeiro
+                for produto in self.catalogo_repo.produtos:
+                    if produto.nome.lower() in seg_limpo:
+                        produto_encontrado = produto
+                        break
+
+                # Senão, busca fuzzy no segmento isolado
+                if produto_encontrado is None:
+                    produto_encontrado = self.catalogo_repo.buscar_produto_com_fuzzy(
+                        seg_limpo, cutoff=fuzzy_cutoff
+                    )
+
+                if produto_encontrado and not any(
+                    it["produto_id"] == produto_encontrado.id for it in itens_extraidos
+                ):
                     qtd = 1
-                    match_qtd = re.search(rf"\b(um|uma|dois|duas|três|tres|\d+)\s+.*{re.escape(produto.nome.split()[0].lower())}", fala_lower)
+                    match_qtd = re.search(
+                        r"\b(um|uma|dois|duas|três|tres|\d+)\b", seg
+                    )
                     if match_qtd:
                         val = match_qtd.group(1)
-                        qtd = {"um": 1, "uma": 1, "dois": 2, "duas": 2, "três": 3, "tres": 3}.get(val, int(val) if val.isdigit() else 1)
-                    itens_extraidos.append({
-                        "produto_id": produto.id,
-                        "nome": produto.nome,
-                        "quantidade": qtd
-                    })
+                        qtd = {
+                            "um": 1,
+                            "uma": 1,
+                            "dois": 2,
+                            "duas": 2,
+                            "três": 3,
+                            "tres": 3,
+                        }.get(val, int(val) if val.isdigit() else 1)
+                    itens_extraidos.append(
+                        {
+                            "produto_id": produto_encontrado.id,
+                            "nome": produto_encontrado.nome,
+                            "quantidade": qtd,
+                        }
+                    )
 
         confianca_padrao = float(self.config.get("fallback", {}).get("confianca_padrao", 0.85))
         return {
@@ -379,5 +702,5 @@ RESPOSTA JSON:"""
             "entidades": entidades,
             "prompt_gerado": prompt,
             "justificativa": resposta_slm.get("justificativa", ""),
-            "metodo": "SLM_LLAMA" if self.model_driver == "ollama" else "FALLBACK_FUZZY"
+            "metodo": f"SLM_{self.model_driver.upper()}" if self.model_driver else "FALLBACK_FUZZY"
         }

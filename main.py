@@ -1,5 +1,6 @@
-import json
+import argparse
 import glob
+import json
 from pathlib import Path
 from src.modulo_catalogo.repository import CatalogoRepository
 from src.modulo_nlu.slm_classifier import SLMIntentClassifier
@@ -7,6 +8,15 @@ from src.modulo_nlu.subscriber import AudioEventSubscriber
 from src.modulo_jornada.jornada import SessionManager
 
 def main():
+    parser = argparse.ArgumentParser(description="Módulo A7 (Varejo) - Execução e Testes SLM")
+    parser.add_argument(
+        "--modelo", "--model", "-m",
+        dest="modelo",
+        default=None,
+        help="Perfil do modelo SLM a ser utilizado (ex: llama3.2_ollama, bonsai2_27b)"
+    )
+    args = parser.parse_args()
+
     print("==================================================")
     print("--- Inicializando Módulo A7 (Varejo) - Testes de Estresse SLM ---")
     print("==================================================")
@@ -15,8 +25,10 @@ def main():
     catalogo = CatalogoRepository(json_path="data/cardapio_mock.json")
     classifier = SLMIntentClassifier(
         config_path="config/slm_config.yaml",
-        catalogo_repo=catalogo
+        catalogo_repo=catalogo,
+        perfil=args.modelo
     )
+    print(f"-> Perfil Ativo: {classifier.perfil_ativo} (Modelo: {classifier.model_name} | Provedor: {classifier.provedor})")
     subscriber = AudioEventSubscriber(classifier)
 
     # 2. Instancia o Orquestrador de Múltiplas Sessões (Jornada)

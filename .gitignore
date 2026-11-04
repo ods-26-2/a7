@@ -3,3 +3,18 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+.env
+
+# Pesos de modelos de IA e binários grandes (>100MB não permitidos no GitHub)
+models/**/*.gguf
+models/*.gguf
+*.gguf
+*.bin
+*.pt
+*.safetensors
+models/*_adapter/
+models/*_gguf/*.gguf
+!models/**/Modelfile
+
+# Repositórios e demos clonados localmente
+Bonsai-demo/
