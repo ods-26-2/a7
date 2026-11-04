@@ -14,10 +14,12 @@
 Para executar a demonstração visual individual das operações:
 `python scripts/teste_card_operacoes.py`
 
-- API FastAPI do terminal de operação:
-  - Endpoints REST de cardápio, carrinho, listagem/reset/cancelamento de sessões e ingestão de eventos.
-  - WebSocket em `/ws/sessao` para receber atualizações em tempo real do `SessionManager`.
+- API FastAPI do terminal de operação & Interface Visual Lexie (UI/UX B6):
+  - Interface de balcão/totem 100% orientada a voz e resposta em texto servida em `http://localhost:8000/` (`web/index.html`, `web/styles.css`, `web/app.js`).
+  - Endpoints REST de cardápio, carrinho, confirmação (`/sessoes/{origem}/confirmar`), edição (`/sessoes/{origem}/editar`), listagem/reset/cancelamento de sessões e ingestão de eventos do I5 (`/eventos/voz`, `/api/i5/reproduzir`).
+  - WebSocket em `/ws/sessao` para atualizar o DOM reativamente em tempo real e monitorar automaticamente novos arquivos JSON gerados pelo I5.
   - Execução local: `uvicorn src.modulo_backend.api:app --reload`.
+  - Simulação de transcrições do I5 em tempo real: `python3 scripts/simular_i5_balcao.py` (ou atalhos de teclado `1` a `9` e `D`/`F2` na interface).
 
 - SCRUM-18 (NLU-2 Extração de Slots e NER):
   - Criado SlotExtractor com suporte a conversao de numerais (digitos e extenso ate 20).

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lexie — Interface de Balcão por Voz (UI/UX B6 - ODS A7)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/web/styles.css" />
+</head>
+<body>
+  <!-- Brilho radial de fundo -->
+  <div class="bg-radial-glow" id="bg-glow"></div>
+
+  <!-- Cabeçalho fixo: Logo Lexie + Indicadores de Estado da Sessão (Sem botões clicáveis) -->
+  <header class="top-bar">
+    <div class="brand-logo" aria-label="Lexie">
+      <span class="brand-text">lexie</span>
+      <svg class="brand-wave" viewBox="0 0 140 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lexieWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#B174FF" />
+            <stop offset="50%" stop-color="#7C89FF" />
+            <stop offset="100%" stop-color="#23E8FF" />
+          </linearGradient>
+        </defs>
+        <path d="M2 8.5C18 2.5 32 14.5 48 8.5C64 2.5 78 14.5 94 8.5C110 2.5 124 14.5 138 7.5"
+              stroke="url(#lexieWaveGrad)" stroke-width="3.2" stroke-linecap="round" />
+      </svg>
+    </div>
+
+    <!-- Indicadores visuais passivos de conexão WebSocket e Estado da Sessão -->
+    <div class="status-cluster" aria-live="polite">
+      <div class="ws-indicator" id="ws-indicator">
+        <span class="ws-dot" id="ws-dot"></span>
+        <span id="ws-label">WS CONECTANDO...</span>
+      </div>
+      <div class="session-badge badge-idle" id="global-state-badge">
+        AGUARDANDO VOZ
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal Reativo (Controlado 100% por eventos de voz do I5 via WebSocket) -->
+  <main class="stage-container">
+
+    <!-- =======================================================================
+         TELA 1: INÍCIO / STANDBY (Tela Início.png)
+         ======================================================================= -->
+    <section class="screen-view active" id="view-welcome" aria-label="Tela Inicial">
+      <div class="welcome-center">
+        <h1 class="welcome-title">Bem vindo(a)!</h1>
+        <p class="welcome-subtitle">Diga “Fazer Pedido” ou “Olá” para começar!</p>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         TELA 2: OUVINDO / SESSÃO INICIADA (Tela Início-1.png)
+         ======================================================================= -->
+    <section class="screen-view" id="view-listening" aria-label="Ouvindo Cliente">
+      <div class="listening-center">
+        <!-- Esfera Luminosa Lexie -->
+        <div class="orb-wrapper" id="orb-listening">
+          <div class="orb-ring ring-outer"></div>
+          <div class="orb-ring ring-middle"></div>
+          <div class="orb-core">
+            <div class="orb-glow-layer"></div>
+            <svg class="orb-waves" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="waveGrad1" x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop offset="0%" stop-color="#C06CFF" stop-opacity="0.85" />
+                  <stop offset="50%" stop-color="#6B8BFF" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#1FF0FF" stop-opacity="0.9" />
+                </linearGradient>
+                <linearGradient id="waveGrad2" x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop offset="0%" stop-color="#8A5CFF" stop-opacity="0.6" />
+                  <stop offset="50%" stop-color="#3FB9FF" stop-opacity="0.75" />
+                  <stop offset="100%" stop-color="#56FFFF" stop-opacity="0.6" />
+                </linearGradient>
+              </defs>
+              <path class="wave-path wave-1" d="M 0,120 Q 40,80 80,120 T 160,120 T 240,120 L 240,160 L 0,160 Z" fill="url(#waveGrad1)" />
+              <path class="wave-path wave-2" d="M 0,120 Q 50,155 100,115 T 190,125 T 240,115 L 240,160 L 0,160 Z" fill="url(#waveGrad2)" />
+              <path class="wave-line" d="M 10,120 C 55,85 85,155 125,115 C 165,75 195,145 230,118" stroke="#BDFBFF" stroke-width="3" fill="none" />
+            </svg>
+          </div>
+        </div>
+
+        <h2 class="voice-headline" id="listening-headline">Estou ouvindo você</h2>
+        <p class="voice-subheadline" id="listening-subheadline">Pode falar naturalmente</p>
+
+        <!-- Caixa de Diálogo Textual (Você / Lexie) -->
+        <div class="dialogue-box" id="listening-dialogue-box">
+          <div class="dialogue-row" id="listening-row-1">
+            <span class="dialogue-dot dot-user"></span>
+            <p class="dialogue-text">
+              <strong class="speaker-user">Você:</strong>
+              <span id="listening-user-msg">Fazer pedido</span>
+            </p>
+          </div>
+          <div class="dialogue-row" id="listening-row-2">
+            <span class="dialogue-dot dot-lexie"></span>
+            <p class="dialogue-text">
+              <strong class="speaker-lexie">Lexie:</strong>
+              <span id="listening-lexie-msg">Pedido aberto para mesa 05</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         TELA 3: PEDIDO ABERTO COM COMANDA (Pedido aberto.png / -1 / -2)
+         ======================================================================= -->
+    <section class="screen-view" id="view-order-open" aria-label="Pedido em Andamento">
+      <div class="order-split-layout">
+
+        <!-- Coluna Esquerda: Orbe de Voz + Banner PENDING + Resposta por Texto -->
+        <div class="order-left-col">
+          <div class="orb-wrapper" id="orb-order">
+            <div class="orb-ring ring-outer"></div>
+            <div class="orb-ring ring-middle"></div>
+            <div class="orb-core">
+              <div class="orb-glow-layer"></div>
+              <svg class="orb-waves" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+                <path class="wave-path wave-1" d="M 0,120 Q 40,80 80,120 T 160,120 T 240,120 L 240,160 L 0,160 Z" fill="url(#waveGrad1)" />
+                <path class="wave-path wave-2" d="M 0,120 Q 50,155 100,115 T 190,125 T 240,115 L 240,160 L 0,160 Z" fill="url(#waveGrad2)" />
+                <path class="wave-line" d="M 10,120 C 55,85 85,155 125,115 C 165,75 195,145 230,118" stroke="#BDFBFF" stroke-width="3" fill="none" />
+              </svg>
+            </div>
+          </div>
+
+          <h2 class="voice-headline" id="order-voice-headline">Estou ouvindo você</h2>
+          <p class="voice-subheadline" id="order-voice-subheadline">Pode falar naturalmente</p>
+
+          <!-- Banner de Alerta Destacado para Estado PENDING (Critério de Aceite RF07) -->
+          <div class="pending-alert-banner hidden" id="pending-alert-banner" role="alert">
+            <div class="pending-alert-icon">⚠️</div>
+            <div class="pending-alert-body">
+              <div class="pending-alert-title">ATENÇÃO — SESSÃO EM ESTADO PENDING (DÚVIDA EXPLÍCITA / INDISPONIBILIDADE)</div>
+              <div class="pending-alert-reason" id="pending-alert-reason">
+                Confiança baixa na transcrição de áudio ou produto indisponível.
+              </div>
+            </div>
+          </div>
+
+          <!-- Caixa de Diálogo Textual (Você / Lexie) -->
+          <div class="dialogue-box" id="order-dialogue-box">
+            <div class="dialogue-row" id="order-dialogue-first">
+              <span class="dialogue-dot dot-user" id="order-dot-1"></span>
+              <p class="dialogue-text">
+                <strong class="speaker-user" id="order-speaker-1">Você:</strong>
+                <span id="order-msg-1">Gostaria de dois X-Bacon e um suco de laranja.</span>
+              </p>
+            </div>
+            <div class="dialogue-row" id="order-dialogue-second">
+              <span class="dialogue-dot dot-lexie" id="order-dot-2"></span>
+              <p class="dialogue-text">
+                <strong class="speaker-lexie" id="order-speaker-2">Lexie:</strong>
+                <span id="order-msg-2">Ok!</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coluna Direita: Comanda Dinâmica (Seu Pedido) -->
+        <aside class="order-right-col" aria-label="Comanda da Mesa">
+          <div class="comanda-top-meta">
+            <span class="comanda-origin-label" id="comanda-open-label">MESA 05 - COMANDA ABERTA</span>
+            <span class="comanda-state-pill badge-active" id="comanda-open-badge">ACTIVE</span>
+          </div>
+
+          <div class="comanda-card" id="comanda-open-card">
+            <h3 class="comanda-title">Seu Pedido</h3>
+
+            <div class="comanda-items-container" id="comanda-open-items">
+              <!-- Renderizado dinamicamente via JS -->
+            </div>
+
+            <div class="comanda-footer">
+              <div class="comanda-divider-bottom"></div>
+              <div class="comanda-total-row">
+                <span class="comanda-subtotal-label">Subtotal</span>
+                <span class="comanda-subtotal-value" id="comanda-open-total">R$0,00</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </section>
+
+    <!-- =======================================================================
+         TELA 4: PEDIDO FINALIZADO / COMANDA FECHADA (Pedido aberto-3.png)
+         ======================================================================= -->
+    <section class="screen-view" id="view-order-closed" aria-label="Pedido Finalizado">
+      <div class="closed-center-layout">
+        <div class="comanda-top-meta closed-meta">
+          <span class="comanda-origin-label" id="comanda-closed-label">MESA 05 - COMANDA FECHADA</span>
+          <span class="comanda-state-pill badge-confirmed" id="comanda-closed-badge">CONFIRMADO</span>
+        </div>
+
+        <div class="comanda-card closed-card">
+          <h3 class="comanda-title">Seu Pedido</h3>
+
+          <div class="comanda-items-container" id="comanda-closed-items">
+            <!-- Renderizado dinamicamente via JS -->
+          </div>
+
+          <div class="comanda-footer">
+            <div class="comanda-divider-bottom"></div>
+            <div class="comanda-total-row">
+              <span class="comanda-subtotal-label">Subtotal</span>
+              <span class="comanda-subtotal-value" id="comanda-closed-total">R$0,00</span>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="closed-headline">Pedido Finalizado!</h2>
+        <p class="closed-subheadline">Dirija-se ao caixa para realizar o pagamento.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       PAINEL OCULTO DE SIMULAÇÃO I5 & TESTES REST (Atalho de Teclado: Tecla D ou F2)
+       Invisível durante a operação normal por voz no totem/balcão.
+       ========================================================================= -->
+  <aside class="dev-drawer hidden" id="dev-drawer" aria-label="Simulador de Eventos I5 e API REST">
+    <div class="dev-drawer-header">
+      <div>
+        <h4>Simulador I5 &amp; Operações REST (Modo Avaliação)</h4>
+        <p class="dev-hint">Pressione <kbd>D</kbd> ou <kbd>F2</kbd> para ocultar • Teclas <kbd>1</kbd>–<kbd>9</kbd> disparam cenas</p>
+      </div>
+      <button type="button" class="dev-close-btn" id="dev-close-btn" title="Fechar (D)">✕</button>
+    </div>
+
+    <div class="dev-drawer-content">
+      <!-- Origem ativa -->
+      <div class="dev-section">
+        <label class="dev-label" for="dev-origem-input">Origem / Mesa monitorada:</label>
+        <div class="dev-row">
+          <input type="text" id="dev-origem-input" class="dev-input" value="mesa_05" />
+          <span class="dev-latency-tag" id="dev-latency-tag">Latência WS: — ms</span>
+        </div>
+      </div>
+
+      <!-- Roteiro fiel às 6 imagens de inspiração -->
+      <div class="dev-section">
+        <span class="dev-label">Cenas das Telas de Inspiração (Atalhos 1 a 6):</span>
+        <div class="dev-grid-buttons">
+          <button type="button" class="dev-btn" data-scene="1">[1] Tela Início</button>
+          <button type="button" class="dev-btn" data-scene="2">[2] “Fazer pedido”</button>
+          <button type="button" class="dev-btn" data-scene="3">[3] “2 X-Bacon e 1 Suco”</button>
+          <button type="button" class="dev-btn" data-scene="4">[4] “Enviar p/ cozinha? Sim!”</button>
+          <button type="button" class="dev-btn" data-scene="5">[5] “Fechar a conta? Sim!”</button>
+          <button type="button" class="dev-btn" data-scene="6">[6] Pedido Finalizado!</button>
+        </div>
+      </div>
+
+      <!-- Testes de Critérios de Aceite (PENDING, Variações, Remoção) -->
+      <div class="dev-section">
+        <span class="dev-label">Cenários de Aceite B6 / RF07 (Atalhos 7 a 9):</span>
+        <div class="dev-grid-buttons">
+          <button type="button" class="dev-btn dev-btn-warn" data-scene="7">[7] PENDING: Confiança Baixa I5 (0.32)</button>
+          <button type="button" class="dev-btn dev-btn-warn" data-scene="8">[8] PENDING: Item Indisponível</button>
+          <button type="button" class="dev-btn" data-scene="9">[9] + Variação (“X-Salada sem cebola”)</button>
+        </div>
+      </div>
+
+      <!-- Arquivos JSON Reais do I5 -->
+      <div class="dev-section">
+        <span class="dev-label">Arquivos JSON Reais do Componente I5:</span>
+        <div class="dev-i5-files" id="dev-i5-files">
+          <span class="dev-muted">Carregando arquivos do I5...</span>
+        </div>
+      </div>
+
+      <!-- Envio de Transcrição Customizada simulando I5 -->
+      <div class="dev-section">
+        <span class="dev-label">Simular Payload de Voz do I5 (POST /eventos/voz):</span>
+        <div class="dev-row">
+          <input type="text" id="dev-voice-text" class="dev-input" placeholder="Ex: quero dois x-saladas sem cebola" />
+          <input type="number" id="dev-voice-conf" class="dev-input dev-input-small" value="0.95" min="0.05" max="1.0" step="0.05" title="Confiança I5" />
+          <button type="button" class="dev-btn dev-btn-primary" id="dev-send-voice-btn">Enviar I5</button>
+        </div>
+      </div>
+
+      <!-- Endpoints REST mapeados (Confirmar, Cancelar, Editar, Resetar) -->
+      <div class="dev-section">
+        <span class="dev-label">Endpoints REST do Backend (/sessoes/{origem}/...):</span>
+        <div class="dev-grid-buttons">
+          <button type="button" class="dev-btn dev-btn-success" id="rest-btn-confirmar">Confirmar (REST)</button>
+          <button type="button" class="dev-btn dev-btn-danger" id="rest-btn-cancelar">Cancelar (REST)</button>
+          <button type="button" class="dev-btn" id="rest-btn-editar">Editar Item (REST)</button>
+          <button type="button" class="dev-btn" id="rest-btn-resetar">Resetar (REST)</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <script src="/web/app.js"></script>
+</body>
+</html>
+

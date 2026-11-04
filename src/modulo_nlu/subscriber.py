@@ -43,14 +43,17 @@ class AudioEventSubscriber:
 
         # Origem (ex: 'mic_balcao_1', 'mic_mesa_02', 'mic_totem_streaming')
         origem = payload.get("origem", "default")
+        duvida_explicita = bool(payload.get("duvida_explicita", False))
 
         # Regra de corte para baixas confianças de áudio (I5 / RF07)
-        if confianca < 0.5:
+        if confianca < 0.5 or duvida_explicita:
             return {
                 "origem": origem,
                 "intencao": "INDETERMINADO",
                 "texto_bruto": texto_transcrito,
+                "texto_transcrito": texto_transcrito,
                 "confianca": confianca,
+                "duvida_explicita": True,
                 "erro": "Confiança do áudio muito baixa"
             }
 
@@ -58,5 +61,6 @@ class AudioEventSubscriber:
         resultado = self.classifier.classify(texto_transcrito)
         resultado["origem"] = origem
         resultado["confianca"] = confianca
+        resultado["texto_transcrito"] = texto_transcrito
 
         return resultado

@@ -110,12 +110,15 @@ class OrderSession:
         self.state: SessionState = SessionState.ACTIVE
         self.cart: Cart = Cart()
         self.pending_reason: Optional[str] = None
+        self.last_user_text: Optional[str] = None
+        self.last_message: Optional[str] = None
+        self.last_intent: Optional[str] = None
         self.created_at: float = time.time()
         self.last_updated: float = time.time()
 
     def _reset_pending(self) -> None:
         self.pending_reason = None
-        if self.state == SessionState.PENDING:
+        if self.state in (SessionState.PENDING, SessionState.CONFIRMADO, SessionState.COMPLETED):
             self.state = SessionState.ACTIVE
 
     def handle_nlu_result(
@@ -293,8 +296,8 @@ class OrderSession:
                 "carrinho": self.cart.to_dict(),
             }
 
-        # 5. Intenção CONFIRMAR_PEDIDO
-        if intencao == "CONFIRMAR_PEDIDO":
+        # 5. Intenção CONFIRMAR_PEDIDO ou PEDIR_CONTA
+        if intencao in ("CONFIRMAR_PEDIDO", "PEDIR_CONTA"):
             if not self.cart.itens:
                 return {
                     "origem": self.origem,
@@ -303,11 +306,33 @@ class OrderSession:
                     "carrinho": self.cart.to_dict(),
                 }
             self.state = SessionState.CONFIRMED
+            self.pending_reason = None
             return {
                 "origem": self.origem,
                 "estado": self.state.name,
                 "mensagem": f"Pedido confirmado com sucesso! Total: R$ {self.cart.total:.2f}.",
                 "carrinho": self.cart.to_dict(),
+            }
+
+        # 6. Intenção INICIAR_PEDIDO (saudação / abertura de comanda por voz)
+        if intencao == "INICIAR_PEDIDO":
+            if self.state in (SessionState.CONFIRMADO, SessionState.COMPLETED):
+                self.cart.clear()
+            self._reset_pending()
+            return {
+                "origem": self.origem,
+                "estado": self.state.name,
+                "mensagem": f"Pedido aberto para {self.origem}",
+                "carrinho": self.cart.to_dict(),
+            }
+
+        # 7. Intenção CHAMAR_ATENDIMENTO
+        if intencao == "CHAMAR_ATENDIMENTO":
+            return {
+                "origem": self.origem,
+                "estado": self.state.name,
+                "mensagem": "Atendente chamado! Um colaborador já está indo até você.",
+                "carrinho": self.cart.to_dict() if self.state != SessionState.PENDING else None,
             }
 
         # Demais intenções mantêm o estado atual
@@ -323,6 +348,9 @@ class OrderSession:
             "origem": self.origem,
             "estado": self.state.name,
             "pending_reason": self.pending_reason,
+            "texto_usuario": self.last_user_text,
+            "mensagem": self.last_message,
+            "intencao": self.last_intent,
             "created_at": self.created_at,
             "last_updated": self.last_updated,
             "carrinho": self.cart.to_dict(),
@@ -367,9 +395,17 @@ class SessionManager:
         # A origem pode vir como parâmetro explícito ou dentro do próprio payload (AudioEventSubscriber)
         origem_id = origem or nlu_payload.get("origem", "default")
         session = self.get_or_create_session(origem_id)
+        texto_usuario = nlu_payload.get("texto_transcrito") or nlu_payload.get("texto_bruto") or ""
+        intencao = nlu_payload.get("intencao")
         result = session.handle_nlu_result(nlu_payload, catalogo_repo=self.catalogo_repo)
+        session.last_user_text = texto_usuario
+        session.last_message = result.get("mensagem")
+        session.last_intent = intencao
         broadcast_payload = {
             **result,
+            "intencao": intencao,
+            "texto_usuario": texto_usuario,
+            "confianca": nlu_payload.get("confianca"),
             "pending_reason": session.pending_reason,
             "created_at": session.created_at,
             "last_updated": session.last_updated,

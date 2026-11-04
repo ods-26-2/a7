@@ -56,4 +56,27 @@ class CatalogoRepository:
         if matches:
             return mapa_nomes[matches[0]]
 
+        # 3. Aliases fonéticos comuns do Whisper (I5) e nomes simplificados sem volume
+        aliases_foneticos = {
+            "suco laranja": "suco natural de laranja 500ml",
+            "suco de laranja": "suco natural de laranja 500ml",
+            "suco natural laranja": "suco natural de laranja 500ml",
+            "x-beico": "x-bacon",
+            "x beico": "x-bacon",
+            "xizbeito": "x-bacon",
+            "chi-bacon": "x-bacon",
+            "chi bacon": "x-bacon",
+            "xis bacon": "x-bacon",
+            "xis salada": "x-salada",
+            "chi-salada": "x-salada",
+            "patata frita": "batata frita padrão",
+            "batatinha frita": "batata frita padrão",
+            "coca-cola": "coca-cola lata 350ml",
+            "coca cola": "coca-cola lata 350ml",
+            "milkshake": "milkshake de chocolate 400ml",
+        }
+        for chave_alias, nome_alvo in aliases_foneticos.items():
+            if chave_alias in termo_limpo and nome_alvo in mapa_nomes:
+                return mapa_nomes[nome_alvo]
+
         return None

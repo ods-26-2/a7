@@ -87,3 +87,61 @@ def test_websocket_broadcast_and_latency():
         assert update["estado"] == "ACTIVE"
         assert update["carrinho"]["total"] == 6.5
         assert elapsed_ms < 200, f"Broadcast levou {elapsed_ms:.2f} ms"
+
+
+def test_frontend_ui_and_lexie_voice_flow():
+    client = make_client()
+
+    # Verifica servimento da interface B6
+    ui_resp = client.get("/")
+    assert ui_resp.status_code == 200
+    assert "lexie" in ui_resp.text
+
+    with client.websocket_connect("/ws/sessao") as websocket:
+        welcome = websocket.receive_json()
+        assert welcome["tipo"] == "conectado"
+
+        # 1. Abertura de pedido por voz ("Fazer pedido")
+        websocket.send_json({
+            "payload": {
+                "origem": "mesa_05",
+                "texto_transcrito": "Fazer pedido",
+                "confianca_geral": 0.98,
+            }
+        })
+        abertura = websocket.receive_json()
+        assert abertura["origem"] == "mesa_05"
+        assert abertura["estado"] == "ACTIVE"
+        assert abertura["intencao"] == "INICIAR_PEDIDO"
+
+        # 2. Pedido múltiplo da inspiração ("Gostaria de dois X-Bacon e um suco de laranja.")
+        websocket.send_json({
+            "payload": {
+                "origem": "mesa_05",
+                "texto_transcrito": "Gostaria de dois X-Bacon e um suco de laranja.",
+                "confianca_geral": 0.96,
+            }
+        })
+        pedido = websocket.receive_json()
+        assert pedido["estado"] == "ACTIVE"
+        assert len(pedido["carrinho"]["itens"]) == 2
+        assert pedido["carrinho"]["total"] == 61.0  # 2 * 26.50 + 8.00
+
+        # 3. Alerta PENDING por dúvida explícita do I5 (confiança < 0.5)
+        websocket.send_json({
+            "payload": {
+                "origem": "mesa_05",
+                "texto_transcrito": "ruído baixo",
+                "confianca_geral": 0.30,
+            }
+        })
+        alerta = websocket.receive_json()
+        assert alerta["estado"] == "PENDING"
+        assert alerta["pending_reason"] is not None
+        assert len(alerta["carrinho"]["itens"]) == 2  # Carrinho preservado
+
+        # 4. Confirmação via endpoint REST mapeado
+        conf_resp = client.post("/sessoes/mesa_05/confirmar")
+        assert conf_resp.status_code == 200
+        assert conf_resp.json()["estado"] == "CONFIRMADO"
+
