@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 import json
+import os
 from pathlib import Path
 from threading import RLock
 import time
@@ -17,13 +18,14 @@ from fastapi.staticfiles import StaticFiles
 from src.modulo_catalogo.repository import CatalogoRepository
 from src.modulo_jornada.jornada import CartItem, SessionManager, SessionState
 from src.modulo_nlu.classifier import IntentClassifier
+from src.modulo_nlu.slm_classifier import SLMIntentClassifier
 from src.modulo_nlu.subscriber import AudioEventSubscriber
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = PROJECT_ROOT / "web"
 I5_DIRS = [
-    PROJECT_ROOT / "jsons_gerados copy",
     PROJECT_ROOT / "jsons_gerados",
+    PROJECT_ROOT.parent / "i5" / "jsons_gerados",
     PROJECT_ROOT.parent / "ods-i5-audio-transcription" / "jsons_gerados",
 ]
 
@@ -75,7 +77,9 @@ def _normalize_origem(value: str) -> str:
 def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
     catalogo = CatalogoRepository(str(PROJECT_ROOT / "data" / "cardapio_mock.json"))
     manager = session_manager or SessionManager(catalogo_repo=catalogo)
-    subscriber = AudioEventSubscriber(IntentClassifier(catalogo))
+    config_yaml_path = PROJECT_ROOT / "config" / "slm_config.yaml"
+    classifier = SLMIntentClassifier(config_path=str(config_yaml_path), catalogo_repo=catalogo)
+    subscriber = AudioEventSubscriber(classifier)
     connections = ConnectionManager()
     manager.subscribe(connections.publish)
 
@@ -86,6 +90,14 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="O campo texto ou texto_transcrito é obrigatório.")
         nlu_result = subscriber.on_message_received(event_payload)
         return manager.handle_nlu_result(nlu_result)
+
+    def on_kafka_event(dados: Dict[str, Any]) -> None:
+        """Callback acionado pelo consumidor Kafka em background para atualizar o WebSocket."""
+        try:
+            jornada_out = dados.get("jornada", {})
+            connections.publish(jornada_out)
+        except Exception as err:
+            print(f"[A7 - Backend] Erro ao despachar evento Kafka para o frontend: {err}")
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -120,11 +132,34 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
                     pass
 
         watcher_task = asyncio.create_task(_watch_i5_dirs())
+
+        # Inicia consumidor Kafka B2 em background caso habilitado via env ou config YAML
+        kafka_consumer = None
+        kafka_cfg = classifier.config.get("kafka", {}) if isinstance(classifier.config, dict) else {}
+        kafka_enabled = (
+            os.getenv("KAFKA_ENABLED", "").lower() in ("1", "true", "yes")
+            or bool(kafka_cfg.get("habilitado", False))
+        )
+        if kafka_enabled:
+            try:
+                from src.modulo_nlu.kafka_consumer import TranscriptKafkaConsumer
+
+                kafka_consumer = TranscriptKafkaConsumer.from_config(
+                    subscriber=subscriber,
+                    session_manager=manager,
+                    config_path=config_yaml_path,
+                )
+                kafka_consumer.start_background(on_event=on_kafka_event)
+            except Exception as exc:
+                print(f"[Aviso A7 - FastAPI] Não foi possível iniciar consumidor Kafka em background: {exc}")
+
         try:
             yield
         finally:
             stop_event.set()
             watcher_task.cancel()
+            if kafka_consumer is not None:
+                kafka_consumer.close()
 
     app = FastAPI(title="ODS A7 - Terminal de Operação (UI/UX B6 - Lexie)", version="1.0.0", lifespan=lifespan)
     app.state.session_manager = manager

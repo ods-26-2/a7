@@ -16,9 +16,10 @@ Este módulo organiza o atendimento em duas classes complementares:
 from __future__ import annotations
 
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Deque
 
 from src.modulo_catalogo.repository import CatalogoRepository
 
@@ -363,10 +364,11 @@ class SessionManager:
     Indexa sessões por 'origem' (nome do microfone, mesa ou totem).
     """
 
-    def __init__(self, catalogo_repo: Optional[CatalogoRepository] = None):
+    def __init__(self, catalogo_repo: Optional[CatalogoRepository] = None, max_idempotency_keys: int = 1000):
         self.catalogo_repo = catalogo_repo or CatalogoRepository(json_path="data/cardapio_mock.json")
         self.sessions: Dict[str, OrderSession] = {}
         self._listeners: List[Any] = []
+        self._processed_message_ids: Deque[str] = deque(maxlen=max_idempotency_keys)
 
     def subscribe(self, listener: Any) -> Any:
         """Registra um observador para cada resultado processado pela jornada."""
@@ -391,10 +393,24 @@ class SessionManager:
     def handle_nlu_result(self, nlu_payload: Dict[str, Any], origem: Optional[str] = None) -> Dict[str, Any]:
         """
         Recebe o resultado do NLU, identifica a origem e despacha para a OrderSession correspondente.
+        Garante idempotência (RNF06) ignorando message_ids duplicados em retransmissões.
         """
-        # A origem pode vir como parâmetro explícito ou dentro do próprio payload (AudioEventSubscriber)
         origem_id = origem or nlu_payload.get("origem", "default")
         session = self.get_or_create_session(origem_id)
+
+        message_id = nlu_payload.get("message_id")
+        if message_id:
+            msg_key = str(message_id).strip()
+            if msg_key in self._processed_message_ids:
+                return {
+                    "origem": session.origem,
+                    "estado": session.state.name,
+                    "mensagem": f"Evento duplicado ignorado (message_id={msg_key}).",
+                    "carrinho": session.cart.to_dict(),
+                    "duplicado": True,
+                }
+            self._processed_message_ids.append(msg_key)
+
         texto_usuario = nlu_payload.get("texto_transcrito") or nlu_payload.get("texto_bruto") or ""
         intencao = nlu_payload.get("intencao")
         result = session.handle_nlu_result(nlu_payload, catalogo_repo=self.catalogo_repo)
@@ -411,6 +427,8 @@ class SessionManager:
             "last_updated": session.last_updated,
             "carrinho": session.cart.to_dict(),
         }
+        if message_id:
+            broadcast_payload["message_id"] = str(message_id)
         self._notify_listeners(broadcast_payload)
         return result
 

@@ -8,17 +8,43 @@ from src.modulo_nlu.subscriber import AudioEventSubscriber
 from src.modulo_jornada.jornada import SessionManager
 
 def main():
-    parser = argparse.ArgumentParser(description="Módulo A7 (Varejo) - Execução e Testes SLM")
+    parser = argparse.ArgumentParser(description="Módulo A7 (Varejo) - Execução, Kafka B2 e Testes SLM")
     parser.add_argument(
         "--modelo", "--model", "-m",
         dest="modelo",
         default=None,
-        help="Perfil do modelo SLM a ser utilizado (ex: llama3.2_ollama, bonsai2_27b)"
+        help="Perfil do modelo SLM a ser utilizado (ex: llama3.2_ollama, bonsai2_27b, llama3.2_finetuned)"
+    )
+    parser.add_argument(
+        "--kafka",
+        action="store_true",
+        help="Inicia o consumidor Kafka em tempo real escutando o tópico ods.i5.transcript (I5 -> A7)"
+    )
+    parser.add_argument(
+        "--kafka-broker",
+        default=None,
+        help="Endereço do broker Kafka (sobrescreve config/slm_config.yaml)"
+    )
+    parser.add_argument(
+        "--kafka-topic",
+        default=None,
+        help="Tópico Kafka a ser escutado (padrão: ods.i5.transcript)"
+    )
+    parser.add_argument(
+        "--kafka-group",
+        default=None,
+        help="Consumer Group ID do A7 no Kafka (padrão: a7-varejo-nlu)"
+    )
+    parser.add_argument(
+        "--offset",
+        choices=["latest", "earliest"],
+        default="latest",
+        help="Posição de início de leitura no Kafka: 'latest' (apenas novas mensagens) ou 'earliest' (desde o início do tópico)"
     )
     args = parser.parse_args()
 
     print("==================================================")
-    print("--- Inicializando Módulo A7 (Varejo) - Testes de Estresse SLM ---")
+    print("--- Inicializando Módulo A7 (Varejo) ---")
     print("==================================================")
     
     # 1. Instancia Catálogo e NLU com SLM (configurado via YAML declarativo)
@@ -33,6 +59,47 @@ def main():
 
     # 2. Instancia o Orquestrador de Múltiplas Sessões (Jornada)
     session_manager = SessionManager(catalogo_repo=catalogo)
+
+    # 3. Modo KAFKA B2: escuta contínua em tempo real do I5 (ods.i5.transcript)
+    if args.kafka:
+        from src.modulo_nlu.kafka_consumer import TranscriptKafkaConsumer
+
+        consumer = TranscriptKafkaConsumer.from_config(
+            subscriber=subscriber,
+            session_manager=session_manager,
+            config_path="config/slm_config.yaml",
+            bootstrap_servers=args.kafka_broker,
+            topic=args.kafka_topic,
+            group_id=args.kafka_group,
+            auto_offset_reset=args.offset,
+        )
+        print("==================================================")
+        print("   [A7 - Kafka B2] Escutando Eventos do I5")
+        print(f"   Broker  : {consumer.bootstrap_servers}")
+        print(f"   Tópico  : {consumer.topic}")
+        print(f"   Group ID: {consumer.group_id}")
+        print("   (Pressione Ctrl+C para encerrar)")
+        print("==================================================\n")
+
+        def _exibir_evento_kafka(dados: dict) -> None:
+            env = dados["envelope"]
+            nlu_res = dados["nlu"]
+            jor_res = dados["jornada"]
+            origem = jor_res.get("origem", "default")
+            txt = nlu_res.get("texto_transcrito", "")
+            print(f"\n[{origem.upper()}] (msg_id={env.get('message_id')[:8]}...) Texto: \"{txt}\"")
+            print(f"  -> NLU: Intenção={nlu_res.get('intencao')} | Confiança Áudio={nlu_res.get('confianca')} | Método={nlu_res.get('metodo')}")
+            if nlu_res.get("itens"):
+                print(f"  -> Itens Extraídos: {nlu_res.get('itens')}")
+            if nlu_res.get("itens_invalidos"):
+                print(f"  -> Itens Inválidos: {nlu_res.get('itens_invalidos')}")
+            print(f"  -> Jornada [{jor_res.get('estado')}]: {jor_res.get('mensagem')}")
+            carrinho = jor_res.get("carrinho")
+            if carrinho and carrinho.get("itens"):
+                print(f"  -> Total Comanda ({origem}): R$ {carrinho.get('total'):.2f}")
+
+        consumer.listen_forever(on_event=_exibir_evento_kafka)
+        return
 
     # --------------------------------------------------------------------------
     # CENÁRIO 1: Duas mesas pedindo simultaneamente (Fluxo Básico)
@@ -190,6 +257,4 @@ def main():
             print(f"  - {item['quantidade']}x {item['nome']} (R$ {item['subtotal']})")
 
 if __name__ == "__main__":
-    main()
-
     main()
