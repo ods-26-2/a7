@@ -92,3 +92,8 @@ kafka:
   auto_offset_reset: latest
   poll_timeout_s: 1.0
   enable_auto_commit: true
+  s5:
+    habilitado: true
+    bootstrap_servers: 34.66.235.91:9093
+    topic_input: ods.s5.event.metrics
+    group_id: a7-admin-s5

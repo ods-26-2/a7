@@ -24,6 +24,8 @@ from src.modulo_nlu.kafka_consumer import (
     validar_envelope_i5,
 )
 from src.modulo_nlu.subscriber import AudioEventSubscriber
+from src.modulo_s5.kafka_consumer import S5MetricsKafkaConsumer, validar_envelope_s5
+from src.modulo_s5.metrics_store import S5MetricsStore
 
 
 def _criar_envelope_i5_valido(
@@ -239,3 +241,82 @@ def test_regra_rnf06_idempotencia_por_message_id():
     assert len(sessao.cart.itens) == 1
     assert sessao.cart.itens[0].quantidade == 1
 
+
+def test_consumo_kafka_metricas_s5_sem_dados_embutidos_na_api():
+    store = S5MetricsStore()
+    assert store.snapshot()["source"] == "s5-aguardando"
+    assert store.snapshot()["summary"]["metric_events"] == 0
+
+    envelope = {
+        "message_id": str(uuid.uuid4()),
+        "message_type": "event",
+        "schema": "ods.s5.event.metrics",
+        "schema_version": "1.0",
+        "producer": "S5",
+        "occurred_at": "2026-11-05T12:30:00Z",
+        "payload": {
+            "event_type": "MOCK_METRIC_TYPE",
+            "zone_id": "restaurant-main",
+            "window_start_at": "2026-11-05T12:00:00Z",
+            "window_end_at": "2026-11-05T13:00:00Z",
+            "granularity": "HOUR",
+            "count": 9,
+            "uncertain_count": 1,
+            "duration_avg_ms": 846000,
+        },
+    }
+    raw = json.dumps(envelope).encode("utf-8")
+    valid, reason = validar_envelope_s5(envelope)
+    assert valid is True, reason
+
+    fake_client = FakeKafkaConsumerClient([FakeKafkaMessage(raw), FakeKafkaMessage(raw)])
+    consumer = S5MetricsKafkaConsumer(
+        metrics_store=store,
+        consumer_factory=lambda _cfg: fake_client,
+    )
+    assert fake_client.subscribed_topics == ["ods.s5.event.metrics"]
+    assert consumer.listen_forever(max_messages=1) == 1
+
+    snapshot = store.snapshot()
+    assert snapshot["source"] == "s5-kafka"
+    assert snapshot["summary"]["total_count"] == 9
+    assert snapshot["summary"]["duration_avg_minutes"] == 14.1
+
+
+def test_snapshot_s5_calcula_historico_diario_semanal_e_picos():
+    store = S5MetricsStore()
+
+    for date_value, count in (
+        ("2026-11-02", 20),
+        ("2026-11-03", 40),
+        ("2026-11-04", 30),
+        ("2026-11-05", 60),
+    ):
+        envelope = {
+            "message_id": str(uuid.uuid4()),
+            "message_type": "event",
+            "schema": "ods.s5.event.metrics",
+            "schema_version": "1.0",
+            "producer": "S5",
+            "occurred_at": f"{date_value}T12:30:00Z",
+            "payload": {
+                "event_type": "DEMO_METRIC_TYPE",
+                "zone_id": "restaurant-main",
+                "window_start_at": f"{date_value}T12:00:00Z",
+                "window_end_at": f"{date_value}T13:00:00Z",
+                "granularity": "HOUR",
+                "count": count,
+                "uncertain_count": 2,
+                "duration_avg_ms": 600000,
+                "demo": True,
+            },
+        }
+        assert store.ingest(envelope) is True
+
+    snapshot = store.snapshot()
+    assert snapshot["demonstration"] is True
+    assert snapshot["insights"]["peak_hour"]["hour"] == "12:00"
+    assert snapshot["insights"]["peak_day"]["date"] == "2026-11-05"
+    assert snapshot["insights"]["peak_day"]["count"] == 60
+    assert snapshot["insights"]["average_daily_count"] == 37.5
+    assert snapshot["insights"]["busiest_weekday"]["weekday"] == "Quinta-feira"

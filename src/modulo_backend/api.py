@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from threading import RLock
 import time
+import threading
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -20,6 +22,8 @@ from src.modulo_jornada.jornada import CartItem, SessionManager, SessionState
 from src.modulo_nlu.classifier import IntentClassifier
 from src.modulo_nlu.slm_classifier import SLMIntentClassifier
 from src.modulo_nlu.subscriber import AudioEventSubscriber
+from src.modulo_s5.metrics_store import S5MetricsStore
+from src.modulo_s5.kafka_consumer import S5MetricsKafkaConsumer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WEB_DIR = PROJECT_ROOT / "web"
@@ -94,6 +98,7 @@ def _normalize_origem(value: str) -> str:
 def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
     catalogo = CatalogoRepository(str(PROJECT_ROOT / "data" / "cardapio_mock.json"))
     manager = session_manager or SessionManager(catalogo_repo=catalogo)
+    s5_store = S5MetricsStore()
     config_yaml_path = PROJECT_ROOT / "config" / "slm_config.yaml"
     classifier = SLMIntentClassifier(config_path=str(config_yaml_path), catalogo_repo=catalogo)
     subscriber = AudioEventSubscriber(classifier)
@@ -150,6 +155,7 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
 
         # Inicia consumidor Kafka B2 em background caso habilitado via env ou config YAML
         kafka_consumer = None
+        s5_consumer = None
         kafka_cfg = classifier.config.get("kafka", {}) if isinstance(classifier.config, dict) else {}
         kafka_enabled = (
             os.getenv("KAFKA_ENABLED", "").lower() in ("1", "true", "yes")
@@ -168,6 +174,26 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
             except Exception as exc:
                 print(f"[Aviso A7 - FastAPI] Não foi possível iniciar consumidor Kafka em background: {exc}")
 
+        s5_cfg = kafka_cfg.get("s5", {}) if isinstance(kafka_cfg, dict) else {}
+        s5_enabled = (
+            os.getenv("S5_KAFKA_ENABLED", "").lower() in ("1", "true", "yes")
+            or bool(s5_cfg.get("habilitado", False))
+        )
+        if s5_enabled:
+            try:
+                s5_consumer = S5MetricsKafkaConsumer(
+                    metrics_store=s5_store,
+                    bootstrap_servers=os.getenv(
+                        "KAFKA_BOOTSTRAP_SERVERS",
+                        s5_cfg.get("bootstrap_servers", kafka_cfg.get("bootstrap_servers", "34.66.235.91:9093")),
+                    ),
+                    topic=os.getenv("S5_METRICS_TOPIC", s5_cfg.get("topic_input", "ods.s5.event.metrics")),
+                    group_id=os.getenv("S5_METRICS_GROUP_ID", s5_cfg.get("group_id", "a7-admin-s5")),
+                )
+                s5_consumer.start_background()
+            except Exception as exc:
+                print(f"[Aviso A7 - S5] Não foi possível iniciar consumidor de métricas: {exc}")
+
         try:
             yield
         finally:
@@ -175,12 +201,15 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
             watcher_task.cancel()
             if kafka_consumer is not None:
                 kafka_consumer.close()
+            if s5_consumer is not None:
+                s5_consumer.close()
 
     app = FastAPI(title="ODS A7 - Terminal de Operação (UI/UX B6 - Lexie)", version="1.0.0", lifespan=lifespan)
     app.state.session_manager = manager
     app.state.catalogo = catalogo
     app.state.subscriber = subscriber
     app.state.connections = connections
+    app.state.s5_metrics_store = s5_store
 
     if WEB_DIR.exists():
         app.mount("/web", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
@@ -200,6 +229,83 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
         if gestor_file.exists():
             return FileResponse(str(gestor_file))
         return HTMLResponse("<h1>Painel do Gestor não encontrado em /web/gestor.html</h1>", status_code=404)
+
+    @app.get("/metricas", include_in_schema=False)
+    def painel_metricas():
+        admin_file = WEB_DIR / "admin.html"
+        if admin_file.exists():
+            return FileResponse(str(admin_file))
+        return HTMLResponse("<h1>Painel administrativo não encontrado em /web/admin.html</h1>", status_code=404)
+
+    @app.get("/api/admin/dashboard")
+    def dashboard_administrativo() -> Dict[str, Any]:
+        agora = time.time()
+        sessoes = manager.listar_sessoes_ativas()
+        mesas: List[Dict[str, Any]] = []
+        locais = {
+            "active": 0,
+            "pending": 0,
+            "confirmed": 0,
+            "completed": 0,
+        }
+        valor_carrinhos = 0.0
+        carrinhos_com_itens = 0
+
+        for sessao in sessoes:
+            estado = str(sessao.get("estado", "ACTIVE")).upper()
+            carrinho = sessao.get("carrinho") or {}
+            idade = max(0, int(agora - float(sessao.get("created_at") or agora)))
+            itens = carrinho.get("itens", []) or []
+            total_carrinho = float(carrinho.get("total", 0) or 0)
+            valor_carrinhos += total_carrinho
+            if itens:
+                carrinhos_com_itens += 1
+            if estado == "PENDING":
+                locais["pending"] += 1
+                tipo_mesa = "Pendente"
+            elif estado == "CONFIRMANDO" or estado == "CONFIRMADO":
+                locais["confirmed"] += 1
+                tipo_mesa = "Confirmado"
+            elif estado == "COMPLETED":
+                locais["completed"] += 1
+                tipo_mesa = "Entregue"
+            else:
+                locais["active"] += 1
+                tipo_mesa = "Em produção"
+
+            mesas.append({
+                "origem": sessao.get("origem"),
+                "estado": estado,
+                "situacao": tipo_mesa,
+                "pending_reason": sessao.get("pending_reason"),
+                "itens": carrinho.get("itens", []),
+                "total": carrinho.get("total", 0),
+                "idade_segundos": idade,
+                "ultima_atualizacao": sessao.get("last_updated"),
+            })
+
+        s5_snapshot = s5_store.snapshot()
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "local": {
+                "mesas": mesas,
+                "summary": {
+                    "mesas_ativas": len(mesas),
+                    "em_producao": locais["active"] + locais["confirmed"],
+                    "pendentes": locais["pending"],
+                    "confirmados": locais["confirmed"],
+                    "entregues": locais["completed"],
+                    "valor_carrinhos": round(valor_carrinhos, 2),
+                    "ticket_medio_carrinhos": (
+                        round(valor_carrinhos / carrinhos_com_itens, 2)
+                        if carrinhos_com_itens
+                        else 0.0
+                    ),
+                    "carrinhos_com_itens": carrinhos_com_itens,
+                },
+            },
+            "s5": s5_snapshot,
+        }
 
     @app.get("/health")
     def health() -> Dict[str, Any]:

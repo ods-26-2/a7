@@ -26,8 +26,8 @@ echo "Iniciando Servidor A7 (Varejo & Terminal B6)"
 echo "Kafka B2  : ATIVADO (ods.i5.transcript)"
 echo "Frontend  : http://localhost:8000/"
 echo "Gestor    : http://localhost:8000/gestor"
+echo "Métricas  : http://localhost:8000/metricas"
 echo "=================================================="
 
 # 3. Executa o servidor via python
 exec $PYTHON_EXEC main.py --server --port 8000
-

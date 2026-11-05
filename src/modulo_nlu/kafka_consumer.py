@@ -109,6 +109,8 @@ def validar_envelope_i5(
     return True, None
 
 
+
+
 class TranscriptKafkaConsumer:
     """
     Consumidor Kafka do Componente A7 que escuta `ods.i5.transcript`, valida o
@@ -327,4 +329,3 @@ class TranscriptKafkaConsumer:
             self._consumer.close()
         except Exception as e:
             logger.warning("[A7 - Kafka] Aviso ao fechar consumidor: %s", e)
-
