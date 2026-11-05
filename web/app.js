@@ -11,12 +11,18 @@
   "use strict";
 
   // ---------------------------------------------------------------------------
+  // Extrai a origem da URL (?origem=mesa_01 ou ?mesa=01)
+  // ---------------------------------------------------------------------------
+  const urlParams = new URLSearchParams(window.location.search);
+  const origemInicial = urlParams.get("origem") || urlParams.get("mesa") || "mesa_05";
+
+  // ---------------------------------------------------------------------------
   // Estado Local da Aplicação
   // ---------------------------------------------------------------------------
   const state = {
     ws: null,
     wsConnected: false,
-    origemAtiva: "mesa_05",
+    origemAtiva: origemInicial,
     lastSendTimestamp: 0,
     lastKnownCart: { itens: [], total: 0.0 },
     currentSessionState: "IDLE", // IDLE | ACTIVE | PENDING | CONFIRMADO | COMPLETED
@@ -230,6 +236,12 @@
       state.lastSendTimestamp = 0;
     }
 
+    // Atualiza apenas se o evento for destinado a esta origem ou se não houver filtro restrito
+    if (payload.origem && payload.origem !== state.origemAtiva) {
+      console.log(`[WS] Ignorando evento da origem '${payload.origem}' pois esta aba monitora '${state.origemAtiva}'`);
+      return;
+    }
+
     if (payload.origem) {
       state.origemAtiva = payload.origem;
       if (dom.devOrigemInput && document.activeElement !== dom.devOrigemInput) {
@@ -316,7 +328,7 @@
   // ---------------------------------------------------------------------------
   function connectWebSocket() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/sessao`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/sessao?origem=${encodeURIComponent(state.origemAtiva)}`;
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -325,7 +337,7 @@
       ws.onopen = () => {
         state.wsConnected = true;
         dom.wsDot.classList.add("connected");
-        dom.wsLabel.textContent = "WS ATIVO (/ws/sessao)";
+        dom.wsLabel.textContent = `WS ATIVO (${state.origemAtiva})`;
       };
 
       ws.onmessage = (event) => {
@@ -615,6 +627,12 @@
   // Inicialização
   // ---------------------------------------------------------------------------
   function init() {
+    // Atualiza imediatamente os labels visuais da comanda com a origem da aba
+    const origemLabel = formatOrigemDisplay(state.origemAtiva);
+    if (dom.comandaOpenLabel) dom.comandaOpenLabel.textContent = `${origemLabel} - COMANDA ABERTA`;
+    if (dom.comandaClosedLabel) dom.comandaClosedLabel.textContent = `${origemLabel} - COMANDA FECHADA`;
+    if (dom.devOrigemInput) dom.devOrigemInput.value = state.origemAtiva;
+
     setupEventListeners();
     connectWebSocket();
   }

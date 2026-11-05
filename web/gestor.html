@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lexie — Painel do Gestor (Comandas em Tempo Real)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/web/styles.css" />
+  <style>
+    body {
+      overflow-y: auto !important;
+      user-select: auto;
+    }
+    .gestor-layout {
+      position: relative;
+      z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 30px 24px 60px 24px;
+    }
+    .gestor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(125, 138, 226, 0.2);
+    }
+    .gestor-title-block h1 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .gestor-title-block p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .gestor-stats {
+      display: flex;
+      gap: 16px;
+    }
+    .stat-pill {
+      background: rgba(29, 34, 80, 0.75);
+      border: 1px solid var(--dialogue-border);
+      border-radius: 12px;
+      padding: 10px 18px;
+      text-align: right;
+    }
+    .stat-pill .val {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .stat-pill .lbl {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-periwinkle);
+    }
+    .comandas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 24px;
+    }
+    .comanda-gestor-card {
+      background: var(--card-bg);
+      color: var(--card-text);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      min-height: 280px;
+    }
+    .comanda-gestor-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    }
+    .comanda-gestor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-divider);
+    }
+    .comanda-gestor-origem {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--card-text);
+    }
+    .comanda-gestor-items {
+      flex: 1;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .gestor-item-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .gestor-item-qty {
+      font-weight: 700;
+      color: #6366f1;
+      margin-right: 8px;
+    }
+    .gestor-item-price {
+      font-weight: 600;
+      color: var(--card-text);
+    }
+    .comanda-gestor-footer {
+      border-top: 2px dashed var(--card-divider);
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .comanda-gestor-total-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #4b5563;
+    }
+    .comanda-gestor-total-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .gestor-msg-box {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: rgba(20, 24, 62, 0.05);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #4b5563;
+      font-style: italic;
+    }
+    .gestor-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn-gestor {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-gestor:hover { opacity: 0.85; }
+    .btn-reset { background: #fee2e2; color: #b91c1c; }
+    .btn-close { background: #e0e7ff; color: #4338ca; }
+
+    .empty-state-gestor {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      font-size: 16px;
+      background: rgba(29, 34, 80, 0.3);
+      border-radius: 20px;
+      border: 1px dashed var(--dialogue-border);
+    }
+    .live-pulse {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-radial-glow"></div>
+
+  <!-- Barra Superior Lexie -->
+  <header class="top-bar">
+    <div class="brand-logo" aria-label="Lexie">
+      <span class="brand-text">lexie</span>
+      <svg class="brand-wave" viewBox="0 0 140 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lexieWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#B174FF" />
+            <stop offset="50%" stop-color="#7C89FF" />
+            <stop offset="100%" stop-color="#23E8FF" />
+          </linearGradient>
+        </defs>
+        <path d="M2 8.5C18 2.5 32 14.5 48 8.5C64 2.5 78 14.5 94 8.5C110 2.5 124 14.5 138 7.5"
+              stroke="url(#lexieWaveGrad)" stroke-width="3.2" stroke-linecap="round" />
+      </svg>
+    </div>
+
+    <div class="status-cluster">
+      <div class="ws-indicator">
+        <span class="ws-dot connected" id="ws-dot"></span>
+        <span id="ws-label">PAINEL DO GESTOR (AO VIVO)</span>
+      </div>
+      <a href="/" target="_blank" style="color: var(--text-periwinkle); text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 12px;">+ Abrir Terminal de Voz</a>
+    </div>
+  </header>
+
+  <!-- Layout Principal do Gestor -->
+  <main class="gestor-layout">
+    <div class="gestor-header">
+      <div class="gestor-title-block">
+        <h1><span class="live-pulse"></span> Visão Geral do Restaurante</h1>
+        <p>Monitoramento em tempo real de todas as mesas, totens e balcões ativos.</p>
+      </div>
+      <div class="gestor-stats">
+        <div class="stat-pill">
+          <div class="val" id="stat-total-sessoes">0</div>
+          <div class="lbl">Comandas Abertas</div>
+        </div>
+        <div class="stat-pill">
+          <div class="val" id="stat-faturamento">R$ 0,00</div>
+          <div class="lbl">Total em Carrinhos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid com Todos os Carrinhos -->
+    <div class="comandas-grid" id="comandas-grid">
+      <div class="empty-state-gestor">Carregando comandas...</div>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      sessions: {}
+    };
+
+    function formatCurrency(val) {
+      return (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    function formatOrigem(origem) {
+      return origem.replace(/_/g, " ").toUpperCase();
+    }
+
+    async function carregarSessoesIniciais() {
+      try {
+        const resp = await fetch("/sessoes");
+        if (resp.ok) {
+          const data = await resp.json();
+          (data.sessoes || []).forEach(sess => {
+            state.sessions[sess.origem] = sess;
+          });
+          renderGrid();
+        }
+      } catch (err) {
+        console.error("Erro ao carregar sessões iniciais:", err);
+      }
+    }
+
+    async function resetarComanda(origem) {
+      if (confirm(`Deseja realmente limpar a comanda de ${origem}?`)) {
+        await fetch(`/sessoes/${encodeURIComponent(origem)}/reset`, { method: "POST" });
+      }
+    }
+
+    async function fecharComanda(origem) {
+      await fetch(`/sessoes/${encodeURIComponent(origem)}/confirmar`, { method: "POST" });
+    }
+
+    function renderGrid() {
+      const container = document.getElementById("comandas-grid");
+      const origens = Object.keys(state.sessions);
+
+      let totalFaturamento = 0;
+      origens.forEach(o => {
+        const c = state.sessions[o].carrinho;
+        if (c && typeof c.total === "number") totalFaturamento += c.total;
+      });
+
+      document.getElementById("stat-total-sessoes").textContent = origens.length;
+      document.getElementById("stat-faturamento").textContent = formatCurrency(totalFaturamento);
+
+      if (origens.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state-gestor">
+            Nenhuma comanda aberta no momento.<br>
+            <span style="font-size: 13px; color: var(--text-periwinkle);">Quando uma mesa ou totem começar a pedir por voz, ela aparecerá aqui automaticamente.</span>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = origens.map(origem => {
+        const sess = state.sessions[origem];
+        const cart = sess.carrinho || { itens: [], total: 0.0 };
+        const itens = cart.itens || [];
+        const estado = sess.estado || "ACTIVE";
+
+        let badgeClass = "badge-active";
+        if (estado === "PENDING") badgeClass = "badge-pending";
+        if (estado === "CONFIRMADO" || estado === "CONFIRMED") badgeClass = "badge-confirmed";
+
+        const itensHtml = itens.length > 0 
+          ? itens.map(it => `
+              <div class="gestor-item-row">
+                <span><span class="gestor-item-qty">${it.quantidade}x</span> ${it.nome}</span>
+                <span class="gestor-item-price">${formatCurrency(it.subtotal || (it.quantidade * it.preco_unitario))}</span>
+              </div>
+            `).join("")
+          : `<div style="font-size: 13px; color: #9ca3af; font-style: italic;">Nenhum item adicionado ainda.</div>`;
+
+        const ultimaFala = sess.texto_usuario ? `
+          <div class="gestor-msg-box">
+            <strong>Última fala:</strong> "${sess.texto_usuario}"
+          </div>
+        ` : "";
+
+        return `
+          <div class="comanda-gestor-card">
+            <div>
+              <div class="comanda-gestor-header">
+                <span class="comanda-gestor-origem">${formatOrigem(origem)}</span>
+                <span class="comanda-state-pill ${badgeClass}">${estado}</span>
+              </div>
+              <div class="comanda-gestor-items">
+                ${itensHtml}
+              </div>
+            </div>
+
+            <div>
+              ${ultimaFala}
+              <div class="comanda-gestor-footer">
+                <span class="comanda-gestor-total-label">Subtotal</span>
+                <span class="comanda-gestor-total-val">${formatCurrency(cart.total)}</span>
+              </div>
+              <div class="gestor-actions">
+                <button class="btn-gestor btn-reset" onclick="resetarComanda('${origem}')">Limpar</button>
+                <button class="btn-gestor btn-close" onclick="fecharComanda('${origem}')">Finalizar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function connectWS() {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      // O gestor conecta SEM passar query param de origem para escutar TODOS os eventos
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/sessao`);
+
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (!payload.origem) return;
+
+          // Atualiza a sessão no estado do gestor
+          state.sessions[payload.origem] = {
+            origem: payload.origem,
+            estado: payload.estado,
+            carrinho: payload.carrinho,
+            texto_usuario: payload.texto_usuario,
+            last_updated: Date.now()
+          };
+
+          renderGrid();
+        } catch (err) {
+          console.error("Erro WS gestor:", err);
+        }
+      };
+
+      ws.onclose = () => setTimeout(connectWS, 2000);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      carregarSessoesIniciais();
+      connectWS();
+    });
+  </script>
+</body>
+</html>
+

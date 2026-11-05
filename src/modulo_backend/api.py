@@ -91,13 +91,11 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
         nlu_result = subscriber.on_message_received(event_payload)
         return manager.handle_nlu_result(nlu_result)
 
+    # O manager já faz manager.subscribe(connections.publish), então não precisamos
+    # republicar manualmente em on_kafka_event para não disparar duas vezes
     def on_kafka_event(dados: Dict[str, Any]) -> None:
-        """Callback acionado pelo consumidor Kafka em background para atualizar o WebSocket."""
-        try:
-            jornada_out = dados.get("jornada", {})
-            connections.publish(jornada_out)
-        except Exception as err:
-            print(f"[A7 - Backend] Erro ao despachar evento Kafka para o frontend: {err}")
+        """Callback acionado pelo consumidor Kafka em background (log/telemetria)."""
+        pass
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -178,9 +176,23 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
             return FileResponse(str(index_file))
         return HTMLResponse("<h1>Interface B6 não encontrada em /web/index.html</h1>", status_code=404)
 
+    @app.get("/gestor", include_in_schema=False)
+    @app.get("/painel", include_in_schema=False)
+    def painel_gestor():
+        gestor_file = WEB_DIR / "gestor.html"
+        if gestor_file.exists():
+            return FileResponse(str(gestor_file))
+        return HTMLResponse("<h1>Painel do Gestor não encontrado em /web/gestor.html</h1>", status_code=404)
+
     @app.get("/health")
-    def health() -> Dict[str, str]:
-        return {"status": "ok"}
+    def health() -> Dict[str, Any]:
+        return {
+            "status": "ok",
+            "modelo_ativo": classifier.perfil_ativo,
+            "modelo_nome": classifier.model_name,
+            "provedor": classifier.provedor,
+            "driver_status": classifier.model_driver or "offline",
+        }
 
     @app.get("/cardapio")
     @app.get("/api/cardapio")
