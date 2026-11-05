@@ -85,7 +85,7 @@ fallback:
   fuzzy_cutoff: 0.6
   confianca_padrao: 0.85
 kafka:
-  habilitado: false
+  habilitado: true
   bootstrap_servers: 34.66.235.91:9093
   topic_input: ods.i5.transcript
   group_id: a7-varejo-nlu

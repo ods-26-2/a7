@@ -55,14 +55,31 @@ class ConnectionManager:
 
     def publish(self, payload: Dict[str, Any]) -> None:
         """Publica no loop do servidor com latência mínima e sem bloquear a jornada."""
+        origem = payload.get("origem", "default")
+        estado = payload.get("estado", "ACTIVE")
+        msg = payload.get("mensagem", "")
+        texto_usuario = payload.get("texto_usuario", "")
+        carrinho = payload.get("carrinho", {})
+        total = carrinho.get("total", 0.0) if isinstance(carrinho, dict) else 0.0
+
+        # Log destacado para o operador saber exatamente qual URL abrir
+        print("\n" + "=" * 60)
+        print(f"[A7 - EVENTO RECEBIDO] Comanda Atualizada: {origem.upper()}")
+        print(f"Abra no navegador : http://localhost:8000/?origem={origem}")
+        if texto_usuario:
+            print(f"🗣️  Fala do Cliente   : \"{texto_usuario}\"")
+        print(f"Status / Resposta : [{estado}] {msg}")
+        print(f"Subtotal Carrinho : R$ {total:.2f}")
+        print("=" * 60 + "\n")
+
         with self._lock:
             targets = list(self._connections.items())
             loop = self._loop
         if loop is None:
             return
 
-        for websocket, origem in targets:
-            if origem and origem != payload.get("origem"):
+        for websocket, origem_ws in targets:
+            if origem_ws and origem_ws != origem:
                 continue
             loop.call_soon_threadsafe(asyncio.create_task, self._send(websocket, payload))
 

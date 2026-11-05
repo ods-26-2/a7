@@ -41,6 +41,17 @@ def main():
         default="latest",
         help="Posição de início de leitura no Kafka: 'latest' (apenas novas mensagens) ou 'earliest' (desde o início do tópico)"
     )
+    parser.add_argument(
+        "--server", "--web",
+        action="store_true",
+        help="Inicia o servidor Web FastAPI + Frontend (B6) + WebSocket na porta 8000"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Porta para o servidor web (default: 8000)"
+    )
     args = parser.parse_args()
 
     print("==================================================")
@@ -59,6 +70,21 @@ def main():
 
     # 2. Instancia o Orquestrador de Múltiplas Sessões (Jornada)
     session_manager = SessionManager(catalogo_repo=catalogo)
+
+    # Modo SERVIDOR WEB / FRONTEND (B6)
+    if args.server:
+        import uvicorn
+        from src.modulo_backend.api import create_app
+
+        app = create_app(session_manager=session_manager)
+        print("==================================================")
+        print("   [A7 - Servidor Web & Frontend B6]")
+        print(f"   Acesse no navegador: http://localhost:{args.port}/")
+        print(f"   Painel do Gestor   : http://localhost:{args.port}/gestor")
+        print("   (Pressione Ctrl+C para encerrar)")
+        print("==================================================\n")
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
+        return
 
     # 3. Modo KAFKA B2: escuta contínua em tempo real do I5 (ods.i5.transcript)
     if args.kafka:
