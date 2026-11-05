@@ -7,9 +7,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/web/styles.css" />
+  <link rel="stylesheet" href="/web/styles.css?v=venetian_fixed_20261105" />
 </head>
 <body>
+  <!-- Definições SVG Globais (Sempre presentes no render tree para evitar bugs de display:none) -->
+  <svg style="position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;" aria-hidden="true">
+    <defs>
+      <clipPath id="ven-global-disc"><circle cx="32" cy="32" r="32"/></clipPath>
+      <linearGradient id="ven-global-face" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.18"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
   <!-- Brilho radial de fundo -->
   <div class="bg-radial-glow" id="bg-glow"></div>
 
@@ -30,14 +41,20 @@
       </svg>
     </div>
 
-    <!-- Indicadores visuais passivos de conexão WebSocket e Estado da Sessão -->
-    <div class="status-cluster" aria-live="polite">
-      <div class="ws-indicator" id="ws-indicator">
-        <span class="ws-dot" id="ws-dot"></span>
-        <span id="ws-label">WS CONECTANDO...</span>
-      </div>
-      <div class="session-badge badge-idle" id="global-state-badge">
-        AGUARDANDO VOZ
+    <!-- Indicadores visuais e Botão de Ajuda & Cardápio -->
+    <div class="top-bar-right">
+      <button type="button" class="help-nav-btn" id="btn-toggle-help" aria-label="Abrir Ajuda e Cardápio">
+        <span class="help-btn-text">Ajuda &amp; Cardápio</span>
+      </button>
+
+      <div class="status-cluster" aria-live="polite">
+        <div class="ws-indicator" id="ws-indicator">
+          <span class="ws-dot" id="ws-dot"></span>
+          <span id="ws-label">WS CONECTANDO...</span>
+        </div>
+        <div class="session-badge badge-idle" id="global-state-badge">
+          AGUARDANDO VOZ
+        </div>
       </div>
     </div>
   </header>
@@ -60,13 +77,13 @@
          ======================================================================= -->
     <section class="screen-view" id="view-listening" aria-label="Ouvindo Cliente">
       <div class="listening-center">
-        <!-- Esfera Luminosa Lexie -->
+        <!-- Esfera Luminosa Lexie (Design Original Ester) -->
         <div class="orb-wrapper" id="orb-listening">
           <div class="orb-ring ring-outer"></div>
           <div class="orb-ring ring-middle"></div>
           <div class="orb-core">
             <div class="orb-glow-layer"></div>
-            <svg class="orb-waves" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+            <svg class="orb-waves" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="waveGrad1" x1="0%" y1="50%" x2="100%" y2="50%">
                   <stop offset="0%" stop-color="#C06CFF" stop-opacity="0.85" />
@@ -78,10 +95,20 @@
                   <stop offset="50%" stop-color="#3FB9FF" stop-opacity="0.75" />
                   <stop offset="100%" stop-color="#56FFFF" stop-opacity="0.6" />
                 </linearGradient>
+                <clipPath id="tide-bowl-listening"><circle cx="32" cy="32" r="32"/></clipPath>
               </defs>
-              <path class="wave-path wave-1" d="M 0,120 Q 40,80 80,120 T 160,120 T 240,120 L 240,160 L 0,160 Z" fill="url(#waveGrad1)" />
-              <path class="wave-path wave-2" d="M 0,120 Q 50,155 100,115 T 190,125 T 240,115 L 240,160 L 0,160 Z" fill="url(#waveGrad2)" />
-              <path class="wave-line" d="M 10,120 C 55,85 85,155 125,115 C 165,75 195,145 230,118" stroke="#BDFBFF" stroke-width="3" fill="none" />
+              <g clip-path="url(#tide-bowl-listening)">
+                <g class="tide-swell">
+                  <g class="tide-lane tide-back">
+                    <path class="tide-body" fill="url(#waveGrad2)" d="M0.0,26.50L2.0,27.12L4.0,27.72L6.0,28.28L8.0,28.76L10.0,29.16L12.0,29.46L14.0,29.64L16.0,29.70L18.0,29.64L20.0,29.46L22.0,29.16L24.0,28.76L26.0,28.28L28.0,27.72L30.0,27.12L32.0,26.50L34.0,25.88L36.0,25.28L38.0,24.72L40.0,24.24L42.0,23.84L44.0,23.54L46.0,23.36L48.0,23.30L50.0,23.36L52.0,23.54L54.0,23.84L56.0,24.24L58.0,24.72L60.0,25.28L62.0,25.88L64.0,26.50L66.0,27.12L68.0,27.72L70.0,28.28L72.0,28.76L74.0,29.16L76.0,29.46L78.0,29.64L80.0,29.70L82.0,29.64L84.0,29.46L86.0,29.16L88.0,28.76L90.0,28.28L92.0,27.72L94.0,27.12L96.0,26.50L98.0,25.88L100.0,25.28L102.0,24.72L104.0,24.24L106.0,23.84L108.0,23.54L110.0,23.36L112.0,23.30L114.0,23.36L116.0,23.54L118.0,23.84L120.0,24.24L122.0,24.72L124.0,25.28L126.0,25.88L128.0,26.50L128,64L0,64Z"/>
+                    <path class="tide-skin" d="M0.0,26.50L2.0,27.12L4.0,27.72L6.0,28.28L8.0,28.76L10.0,29.16L12.0,29.46L14.0,29.64L16.0,29.70L18.0,29.64L20.0,29.46L22.0,29.16L24.0,28.76L26.0,28.28L28.0,27.72L30.0,27.12L32.0,26.50L34.0,25.88L36.0,25.28L38.0,24.72L40.0,24.24L42.0,23.84L44.0,23.54L46.0,23.36L48.0,23.30L50.0,23.36L52.0,23.54L54.0,23.84L56.0,24.24L58.0,24.72L60.0,25.28L62.0,25.88L64.0,26.50L66.0,27.12L68.0,27.72L70.0,28.28L72.0,28.76L74.0,29.16L76.0,29.46L78.0,29.64L80.0,29.70L82.0,29.64L84.0,29.46L86.0,29.16L88.0,28.76L90.0,28.28L92.0,27.72L94.0,27.12L96.0,26.50L98.0,25.88L100.0,25.28L102.0,24.72L104.0,24.24L106.0,23.84L108.0,23.54L110.0,23.36L112.0,23.30L114.0,23.36L116.0,23.54L118.0,23.84L120.0,24.24L122.0,24.72L124.0,25.28L126.0,25.88L128.0,26.50"/>
+                  </g>
+                  <g class="tide-lane tide-front">
+                    <path class="tide-body" fill="url(#waveGrad1)" d="M0.0,22.00L2.0,22.90L4.0,23.76L6.0,24.56L8.0,25.25L10.0,25.82L12.0,26.25L14.0,26.51L16.0,26.60L18.0,26.51L20.0,26.25L22.0,25.82L24.0,25.25L26.0,24.56L28.0,23.76L30.0,22.90L32.0,22.00L34.0,21.10L36.0,20.24L38.0,19.44L40.0,18.75L42.0,18.18L44.0,17.75L46.0,17.49L48.0,17.40L50.0,17.49L52.0,17.75L54.0,18.18L56.0,18.75L58.0,19.44L60.0,20.24L62.0,21.10L64.0,22.00L66.0,22.90L68.0,23.76L70.0,24.56L72.0,25.25L74.0,25.82L76.0,26.25L78.0,26.51L80.0,26.60L82.0,26.51L84.0,26.25L86.0,25.82L88.0,25.25L90.0,24.56L92.0,23.76L94.0,22.90L96.0,22.00L98.0,21.10L100.0,20.24L102.0,19.44L104.0,18.75L106.0,18.18L108.0,17.75L110.0,17.49L112.0,17.40L114.0,17.49L116.0,17.75L118.0,18.18L120.0,18.75L122.0,19.44L124.0,20.24L126.0,21.10L128.0,22.00L128,64L0,64Z"/>
+                    <path class="tide-skin" d="M0.0,22.00L2.0,22.90L4.0,23.76L6.0,24.56L8.0,25.25L10.0,25.82L12.0,26.25L14.0,26.51L16.0,26.60L18.0,26.51L20.0,26.25L22.0,25.82L24.0,25.25L26.0,24.56L28.0,23.76L30.0,22.90L32.0,22.00L34.0,21.10L36.0,20.24L38.0,19.44L40.0,18.75L42.0,18.18L44.0,17.75L46.0,17.49L48.0,17.40L50.0,17.49L52.0,17.75L54.0,18.18L56.0,18.75L58.0,19.44L60.0,20.24L62.0,21.10L64.0,22.00L66.0,22.90L68.0,23.76L70.0,24.56L72.0,25.25L74.0,25.82L76.0,26.25L78.0,26.51L80.0,26.60L82.0,26.51L84.0,26.25L86.0,25.82L88.0,25.25L90.0,24.56L92.0,23.76L94.0,22.90L96.0,22.00L98.0,21.10L100.0,20.24L102.0,19.44L104.0,18.75L106.0,18.18L108.0,17.75L110.0,17.49L112.0,17.40L114.0,17.49L116.0,17.75L118.0,18.18L120.0,18.75L122.0,19.44L124.0,20.24L126.0,21.10L128.0,22.00"/>
+                  </g>
+                </g>
+              </g>
             </svg>
           </div>
         </div>
@@ -89,21 +116,39 @@
         <h2 class="voice-headline" id="listening-headline">Estou ouvindo você</h2>
         <p class="voice-subheadline" id="listening-subheadline">Pode falar naturalmente</p>
 
-        <!-- Caixa de Diálogo Textual (Você / Lexie) -->
+        <!-- Caixa de Diálogo Textual Estilo Chat (Você / Lexie) -->
         <div class="dialogue-box" id="listening-dialogue-box">
-          <div class="dialogue-row" id="listening-row-1">
-            <span class="dialogue-dot dot-user"></span>
-            <p class="dialogue-text">
-              <strong class="speaker-user">Você:</strong>
-              <span id="listening-user-msg">Fazer pedido</span>
-            </p>
+          <div class="chat-bubble-row user">
+            <div class="chat-sender-header user">
+              <span class="dialogue-dot dot-user"></span>
+              <span>Você</span>
+            </div>
+            <div class="chat-bubble">Fazer pedido</div>
           </div>
-          <div class="dialogue-row" id="listening-row-2">
-            <span class="dialogue-dot dot-lexie"></span>
-            <p class="dialogue-text">
-              <strong class="speaker-lexie">Lexie:</strong>
-              <span id="listening-lexie-msg">Pedido aberto para mesa 05</span>
-            </p>
+          <div class="chat-bubble-row lexie">
+            <div class="chat-sender-header lexie">
+              <span class="dialogue-dot dot-lexie"></span>
+              <span>Lexie</span>
+            </div>
+            <div class="chat-bubble">Pedido aberto para mesa 05</div>
+          </div>
+          <div class="chat-bottom-status-row">
+            <div class="chat-bottom-status listening">
+              <svg xmlns="http://www.w3.org/2000/svg" class="ven-icon" viewBox="0 0 64 64" fill="none" role="img" aria-label="Ouvindo">
+                <g clip-path="url(#ven-global-disc)">
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="0.00" width="68" height="7.11" style="--i:0;--rest:0.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="7.11" width="68" height="7.11" style="--i:1;--rest:40.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="14.22" width="68" height="7.11" style="--i:2;--rest:80.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="21.33" width="68" height="7.11" style="--i:3;--rest:120.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="28.44" width="68" height="7.11" style="--i:4;--rest:160.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="35.56" width="68" height="7.11" style="--i:5;--rest:200.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="42.67" width="68" height="7.11" style="--i:6;--rest:240.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="49.78" width="68" height="7.11" style="--i:7;--rest:280.0"/>
+                  <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="56.89" width="68" height="7.11" style="--i:8;--rest:320.0"/>
+                </g>
+              </svg>
+              <span>Ouvindo</span>
+            </div>
           </div>
         </div>
       </div>
@@ -117,15 +162,28 @@
 
         <!-- Coluna Esquerda: Orbe de Voz + Banner PENDING + Resposta por Texto -->
         <div class="order-left-col">
+          <!-- Esfera Luminosa Lexie (Design Original Ester) -->
           <div class="orb-wrapper" id="orb-order">
             <div class="orb-ring ring-outer"></div>
             <div class="orb-ring ring-middle"></div>
             <div class="orb-core">
               <div class="orb-glow-layer"></div>
-              <svg class="orb-waves" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
-                <path class="wave-path wave-1" d="M 0,120 Q 40,80 80,120 T 160,120 T 240,120 L 240,160 L 0,160 Z" fill="url(#waveGrad1)" />
-                <path class="wave-path wave-2" d="M 0,120 Q 50,155 100,115 T 190,125 T 240,115 L 240,160 L 0,160 Z" fill="url(#waveGrad2)" />
-                <path class="wave-line" d="M 10,120 C 55,85 85,155 125,115 C 165,75 195,145 230,118" stroke="#BDFBFF" stroke-width="3" fill="none" />
+              <svg class="orb-waves" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <clipPath id="tide-bowl-order"><circle cx="32" cy="32" r="32"/></clipPath>
+                </defs>
+                <g clip-path="url(#tide-bowl-order)">
+                  <g class="tide-swell">
+                    <g class="tide-lane tide-back">
+                      <path class="tide-body" fill="url(#waveGrad2)" d="M0.0,26.50L2.0,27.12L4.0,27.72L6.0,28.28L8.0,28.76L10.0,29.16L12.0,29.46L14.0,29.64L16.0,29.70L18.0,29.64L20.0,29.46L22.0,29.16L24.0,28.76L26.0,28.28L28.0,27.72L30.0,27.12L32.0,26.50L34.0,25.88L36.0,25.28L38.0,24.72L40.0,24.24L42.0,23.84L44.0,23.54L46.0,23.36L48.0,23.30L50.0,23.36L52.0,23.54L54.0,23.84L56.0,24.24L58.0,24.72L60.0,25.28L62.0,25.88L64.0,26.50L66.0,27.12L68.0,27.72L70.0,28.28L72.0,28.76L74.0,29.16L76.0,29.46L78.0,29.64L80.0,29.70L82.0,29.64L84.0,29.46L86.0,29.16L88.0,28.76L90.0,28.28L92.0,27.72L94.0,27.12L96.0,26.50L98.0,25.88L100.0,25.28L102.0,24.72L104.0,24.24L106.0,23.84L108.0,23.54L110.0,23.36L112.0,23.30L114.0,23.36L116.0,23.54L118.0,23.84L120.0,24.24L122.0,24.72L124.0,25.28L126.0,25.88L128.0,26.50L128,64L0,64Z"/>
+                      <path class="tide-skin" d="M0.0,26.50L2.0,27.12L4.0,27.72L6.0,28.28L8.0,28.76L10.0,29.16L12.0,29.46L14.0,29.64L16.0,29.70L18.0,29.64L20.0,29.46L22.0,29.16L24.0,28.76L26.0,28.28L28.0,27.72L30.0,27.12L32.0,26.50L34.0,25.88L36.0,25.28L38.0,24.72L40.0,24.24L42.0,23.84L44.0,23.54L46.0,23.36L48.0,23.30L50.0,23.36L52.0,23.54L54.0,23.84L56.0,24.24L58.0,24.72L60.0,25.28L62.0,25.88L64.0,26.50L66.0,27.12L68.0,27.72L70.0,28.28L72.0,28.76L74.0,29.16L76.0,29.46L78.0,29.64L80.0,29.70L82.0,29.64L84.0,29.46L86.0,29.16L88.0,28.76L90.0,28.28L92.0,27.72L94.0,27.12L96.0,26.50L98.0,25.88L100.0,25.28L102.0,24.72L104.0,24.24L106.0,23.84L108.0,23.54L110.0,23.36L112.0,23.30L114.0,23.36L116.0,23.54L118.0,23.84L120.0,24.24L122.0,24.72L124.0,25.28L126.0,25.88L128.0,26.50"/>
+                    </g>
+                    <g class="tide-lane tide-front">
+                      <path class="tide-body" fill="url(#waveGrad1)" d="M0.0,22.00L2.0,22.90L4.0,23.76L6.0,24.56L8.0,25.25L10.0,25.82L12.0,26.25L14.0,26.51L16.0,26.60L18.0,26.51L20.0,26.25L22.0,25.82L24.0,25.25L26.0,24.56L28.0,23.76L30.0,22.90L32.0,22.00L34.0,21.10L36.0,20.24L38.0,19.44L40.0,18.75L42.0,18.18L44.0,17.75L46.0,17.49L48.0,17.40L50.0,17.49L52.0,17.75L54.0,18.18L56.0,18.75L58.0,19.44L60.0,20.24L62.0,21.10L64.0,22.00L66.0,22.90L68.0,23.76L70.0,24.56L72.0,25.25L74.0,25.82L76.0,26.25L78.0,26.51L80.0,26.60L82.0,26.51L84.0,26.25L86.0,25.82L88.0,25.25L90.0,24.56L92.0,23.76L94.0,22.90L96.0,22.00L98.0,21.10L100.0,20.24L102.0,19.44L104.0,18.75L106.0,18.18L108.0,17.75L110.0,17.49L112.0,17.40L114.0,17.49L116.0,17.75L118.0,18.18L120.0,18.75L122.0,19.44L124.0,20.24L126.0,21.10L128.0,22.00L128,64L0,64Z"/>
+                      <path class="tide-skin" d="M0.0,22.00L2.0,22.90L4.0,23.76L6.0,24.56L8.0,25.25L10.0,25.82L12.0,26.25L14.0,26.51L16.0,26.60L18.0,26.51L20.0,26.25L22.0,25.82L24.0,25.25L26.0,24.56L28.0,23.76L30.0,22.90L32.0,22.00L34.0,21.10L36.0,20.24L38.0,19.44L40.0,18.75L42.0,18.18L44.0,17.75L46.0,17.49L48.0,17.40L50.0,17.49L52.0,17.75L54.0,18.18L56.0,18.75L58.0,19.44L60.0,20.24L62.0,21.10L64.0,22.00L66.0,22.90L68.0,23.76L70.0,24.56L72.0,25.25L74.0,25.82L76.0,26.25L78.0,26.51L80.0,26.60L82.0,26.51L84.0,26.25L86.0,25.82L88.0,25.25L90.0,24.56L92.0,23.76L94.0,22.90L96.0,22.00L98.0,21.10L100.0,20.24L102.0,19.44L104.0,18.75L106.0,18.18L108.0,17.75L110.0,17.49L112.0,17.40L114.0,17.49L116.0,17.75L118.0,18.18L120.0,18.75L122.0,19.44L124.0,20.24L126.0,21.10L128.0,22.00"/>
+                    </g>
+                  </g>
+                </g>
               </svg>
             </div>
           </div>
@@ -144,21 +202,39 @@
             </div>
           </div>
 
-          <!-- Caixa de Diálogo Textual (Você / Lexie) -->
+          <!-- Caixa de Diálogo Textual Estilo Chat (Você / Lexie) -->
           <div class="dialogue-box" id="order-dialogue-box">
-            <div class="dialogue-row" id="order-dialogue-first">
-              <span class="dialogue-dot dot-user" id="order-dot-1"></span>
-              <p class="dialogue-text">
-                <strong class="speaker-user" id="order-speaker-1">Você:</strong>
-                <span id="order-msg-1">Gostaria de dois X-Bacon e um suco de laranja.</span>
-              </p>
+            <div class="chat-bubble-row user">
+              <div class="chat-sender-header user">
+                <span class="dialogue-dot dot-user"></span>
+                <span>Você</span>
+              </div>
+              <div class="chat-bubble">Gostaria de dois X-Bacon e um suco de laranja.</div>
             </div>
-            <div class="dialogue-row" id="order-dialogue-second">
-              <span class="dialogue-dot dot-lexie" id="order-dot-2"></span>
-              <p class="dialogue-text">
-                <strong class="speaker-lexie" id="order-speaker-2">Lexie:</strong>
-                <span id="order-msg-2">Ok!</span>
-              </p>
+            <div class="chat-bubble-row lexie">
+              <div class="chat-sender-header lexie">
+                <span class="dialogue-dot dot-lexie"></span>
+                <span>Lexie</span>
+              </div>
+              <div class="chat-bubble">Ok!</div>
+            </div>
+            <div class="chat-bottom-status-row">
+              <div class="chat-bottom-status listening">
+                <svg xmlns="http://www.w3.org/2000/svg" class="ven-icon" viewBox="0 0 64 64" fill="none" role="img" aria-label="Ouvindo">
+                  <g clip-path="url(#ven-global-disc)">
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="0.00" width="68" height="7.11" style="--i:0;--rest:0.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="7.11" width="68" height="7.11" style="--i:1;--rest:40.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="14.22" width="68" height="7.11" style="--i:2;--rest:80.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="21.33" width="68" height="7.11" style="--i:3;--rest:120.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="28.44" width="68" height="7.11" style="--i:4;--rest:160.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="35.56" width="68" height="7.11" style="--i:5;--rest:200.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="42.67" width="68" height="7.11" style="--i:6;--rest:240.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="49.78" width="68" height="7.11" style="--i:7;--rest:280.0"/>
+                    <rect class="ven-slat" fill="url(#ven-global-face)" x="-2" y="56.89" width="68" height="7.11" style="--i:8;--rest:320.0"/>
+                  </g>
+                </svg>
+                <span>Ouvindo</span>
+              </div>
             </div>
           </div>
         </div>
@@ -221,6 +297,64 @@
       </div>
     </section>
 
+    <!-- =======================================================================
+         TELA 5: CENTRAL DE AJUDA & CARDÁPIO (Comandos de Voz + Cardápio)
+         ======================================================================= -->
+    <section class="screen-view" id="view-help" aria-label="Central de Ajuda e Cardápio">
+      <div class="help-view-container">
+        <!-- Topo da Central de Ajuda -->
+        <div class="help-header">
+          <div class="help-header-left">
+            <span class="help-tag-pill">Central de Ajuda e Cardápio</span>
+            <h1 class="help-title">Como a Lexie pode te ajudar?</h1>
+            <p class="help-subtitle">Fale naturalmente com a Lexie. Abaixo você confere as ações reconhecidas e o cardápio completo.</p>
+          </div>
+          <button type="button" class="help-return-btn" id="btn-close-help">
+            <span class="return-arrow">←</span>
+            <span>Voltar ao Pedido</span>
+          </button>
+        </div>
+
+        <!-- Abas de Navegação -->
+        <div class="help-tabs-nav" role="tablist">
+          <button type="button" class="help-tab-btn active" id="tab-btn-intents" role="tab" aria-selected="true" data-tab="intents">
+            <span>O que a Lexie Entende (Ações por Voz)</span>
+          </button>
+          <button type="button" class="help-tab-btn" id="tab-btn-menu" role="tab" aria-selected="false" data-tab="menu">
+            <span>Cardápio Completo e Preços</span>
+          </button>
+        </div>
+
+        <!-- Painel 1: Ações que a Lexie Entende -->
+        <div class="help-tab-pane active" id="pane-intents">
+          <div class="pane-header-box">
+            <p class="pane-summary">A Lexie compreende intenções de linguagem natural processadas 100% localmente. Experimente falar frases como:</p>
+          </div>
+          <div class="intents-cards-grid" id="intents-grid-container">
+            <!-- Gerado via JavaScript -->
+          </div>
+        </div>
+
+        <!-- Painel 2: Cardápio Completo -->
+        <div class="help-tab-pane" id="pane-menu">
+          <div class="menu-filter-bar">
+            <span class="menu-filter-label">Filtrar categoria:</span>
+            <div class="menu-filter-chips" id="menu-filter-chips">
+              <button type="button" class="menu-filter-btn active" data-category="all">Todos</button>
+              <button type="button" class="menu-filter-btn" data-category="sanduiches">Sanduíches</button>
+              <button type="button" class="menu-filter-btn" data-category="bebidas">Bebidas</button>
+              <button type="button" class="menu-filter-btn" data-category="porcoes">Acompanhamentos</button>
+              <button type="button" class="menu-filter-btn" data-category="sobremesas">Sobremesas</button>
+            </div>
+          </div>
+          <div class="menu-items-grid" id="menu-grid-container">
+            <!-- Gerado via JavaScript -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 
   <!-- =========================================================================
@@ -237,6 +371,17 @@
     </div>
 
     <div class="dev-drawer-content">
+      <!-- Teste Visual dos Estados do Circle Loader (Corona Swell) -->
+      <div class="dev-section">
+        <span class="dev-label">Estados do Circle Loader (Design Dominika Kissi):</span>
+        <div class="dev-grid-buttons">
+          <button type="button" class="dev-btn" id="btn-state-idle">1. Em descanso (Parado)</button>
+          <button type="button" class="dev-btn" id="btn-state-listening" style="color: #60a5fa;">2. Estou te ouvindo (Fluido)</button>
+          <button type="button" class="dev-btn" id="btn-state-processing" style="color: #38bdf8;">3. Processando (Rápido)</button>
+          <button type="button" class="dev-btn dev-btn-warn" id="btn-state-pending">4. Dúvida / Atenção (Âmbar)</button>
+        </div>
+      </div>
+
       <!-- Origem ativa -->
       <div class="dev-section">
         <label class="dev-label" for="dev-origem-input">Origem / Mesa monitorada:</label>
@@ -300,7 +445,7 @@
     </div>
   </aside>
 
-  <script src="/web/app.js?v=20261105_0820"></script>
+  <script src="/web/app.js?v=venetian_fixed_20261105"></script>
 </body>
 </html>
 

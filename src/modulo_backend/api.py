@@ -336,6 +336,15 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
     def consultar_menu() -> Dict[str, Any]:
         return consultar_cardapio()
 
+    @app.get("/intencoes")
+    @app.get("/api/intencoes")
+    def consultar_intencoes() -> Dict[str, Any]:
+        caminho_intencoes = PROJECT_ROOT / "data" / "intencoes_catalogo.json"
+        if caminho_intencoes.exists():
+            with open(caminho_intencoes, "r", encoding="utf-8") as f:
+                return {"intencoes": json.load(f)}
+        return {"intencoes": []}
+
     @app.get("/sessoes")
     def listar_sessoes() -> Dict[str, Any]:
         return {"sessoes": manager.listar_sessoes_ativas()}

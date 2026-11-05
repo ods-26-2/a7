@@ -3,249 +3,401 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lexie — Painel do Gestor (Comandas em Tempo Real)</title>
+  <title>Lexie — Painel do Gestor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/web/styles.css" />
   <style>
+    /* =========================================================================
+       Tema Azul Sóbrio e Elegante (Navy Slate Corporativo)
+       ========================================================================= */
+    :root {
+      --gestor-bg: #0d131f;          /* Azul petróleo escuro e sóbrio */
+      --gestor-surface: #141c2e;     /* Superfície dos cards */
+      --gestor-surface-hover: #19233a;
+      --gestor-border: rgba(148, 163, 184, 0.14);
+      --gestor-border-subtle: rgba(148, 163, 184, 0.08);
+      --gestor-text-main: #f1f5f9;
+      --gestor-text-muted: #94a3b8;
+      --gestor-accent: #60a5fa;
+    }
+
     body {
+      background-color: var(--gestor-bg) !important;
+      color: var(--gestor-text-main) !important;
       overflow-y: auto !important;
       user-select: auto;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
     }
-    .gestor-layout {
-      position: relative;
-      z-index: 1;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 30px 24px 60px 24px;
-    }
-    .gestor-header {
+
+    /* =========================================================================
+       Cabeçalho Fixo e Fluido (Sem sobreposição)
+       ========================================================================= */
+    .gestor-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13, 19, 31, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--gestor-border);
+      padding: 14px 28px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 28px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid rgba(125, 138, 226, 0.2);
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
     }
-    .gestor-title-block h1 {
-      font-size: 26px;
+
+    .gestor-brand-block {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .brand-logo-compact {
+      display: flex;
+      flex-direction: column;
+      line-height: 1;
+    }
+
+    .brand-logo-compact .brand-text {
+      font-size: 1.8rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-logo-compact .brand-wave {
+      width: 78px;
+      height: 10px;
+      margin-top: 3px;
+    }
+
+    .gestor-page-title {
+      border-left: 1px solid var(--gestor-border);
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gestor-page-title h1 {
+      font-size: 1.15rem;
       font-weight: 600;
-      letter-spacing: -0.5px;
       color: #fff;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      margin: 0;
     }
-    .gestor-title-block p {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin-top: 4px;
+
+    .gestor-page-title p {
+      font-size: 0.78rem;
+      color: var(--gestor-text-muted);
+      margin: 2px 0 0 0;
     }
-    .gestor-stats {
+
+    .gestor-topbar-right {
       display: flex;
+      align-items: center;
       gap: 16px;
+      flex-wrap: wrap;
     }
-    .stat-pill {
-      background: rgba(29, 34, 80, 0.75);
-      border: 1px solid var(--dialogue-border);
-      border-radius: 12px;
-      padding: 10px 18px;
-      text-align: right;
+
+    .stats-container {
+      display: flex;
+      gap: 10px;
     }
-    .stat-pill .val {
-      font-size: 20px;
+
+    .stat-badge {
+      background: rgba(20, 28, 46, 0.75);
+      border: 1px solid var(--gestor-border);
+      border-radius: 10px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-badge .lbl {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gestor-text-muted);
+    }
+
+    .stat-badge .val {
+      font-size: 1rem;
       font-weight: 700;
       color: #fff;
     }
-    .stat-pill .lbl {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-periwinkle);
+
+
+    /* =========================================================================
+       Container Principal & Grid Responsivo
+       ========================================================================= */
+    .gestor-content {
+      position: relative;
+      z-index: 1;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 24px 60px 24px;
     }
+
     .comandas-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
     }
-    .comanda-gestor-card {
-      background: var(--card-bg);
-      color: var(--card-text);
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+
+    /* Card da Comanda Sóbrio e Elegante */
+    .comanda-card {
+      background: var(--gestor-surface);
+      border: 1px solid var(--gestor-border);
+      border-radius: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      position: relative;
-      min-height: 280px;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      min-height: 240px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     }
-    .comanda-gestor-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+    .comanda-card:hover {
+      border-color: rgba(148, 163, 184, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     }
-    .comanda-gestor-header {
+
+    .comanda-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
       padding-bottom: 12px;
-      border-bottom: 1px solid var(--card-divider);
+      border-bottom: 1px solid var(--gestor-border-subtle);
+      margin-bottom: 14px;
     }
-    .comanda-gestor-origem {
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+
+    .comanda-origem-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
       text-transform: uppercase;
-      color: var(--card-text);
+      color: #fff;
     }
-    .comanda-gestor-items {
+
+    /* Itens do Pedido */
+    .comanda-items-list {
       flex: 1;
-      margin-bottom: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      margin-bottom: 16px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
     }
-    .gestor-item-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .gestor-item-qty {
-      font-weight: 700;
-      color: #6366f1;
-      margin-right: 8px;
-    }
-    .gestor-item-price {
-      font-weight: 600;
-      color: var(--card-text);
-    }
-    .comanda-gestor-footer {
-      border-top: 2px dashed var(--card-divider);
-      padding-top: 14px;
+
+    .comanda-item-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
+      font-size: 0.88rem;
     }
-    .comanda-gestor-total-label {
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: #4b5563;
+
+    .comanda-item-left {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      color: #e2e8f0;
     }
-    .comanda-gestor-total-val {
-      font-size: 22px;
+
+    .item-qty {
       font-weight: 700;
-      color: #111827;
+      color: var(--gestor-accent);
+      font-size: 0.84rem;
     }
-    .gestor-msg-box {
-      margin-top: 12px;
-      padding: 8px 12px;
-      background: rgba(20, 24, 62, 0.05);
-      border-radius: 8px;
-      font-size: 12px;
-      color: #4b5563;
+
+    .item-name {
+      font-weight: 500;
+    }
+
+    .item-price {
+      font-weight: 600;
+      color: #94a3b8;
+      font-size: 0.84rem;
+      white-space: nowrap;
+    }
+
+    .comanda-empty-msg {
+      font-size: 0.82rem;
+      color: #64748b;
       font-style: italic;
+      padding: 12px 0;
     }
-    .gestor-actions {
-      margin-top: 14px;
+
+    /* Rodapé da Comanda */
+    .comanda-footer {
+      border-top: 1px solid var(--gestor-border-subtle);
+      padding-top: 14px;
+    }
+
+    .comanda-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+
+    .comanda-total-lbl {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gestor-text-muted);
+      font-weight: 500;
+    }
+
+    .comanda-total-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .comanda-actions {
       display: flex;
       gap: 8px;
     }
-    .btn-gestor {
+
+    .btn-act {
       flex: 1;
-      padding: 8px;
+      padding: 7px 10px;
       border-radius: 8px;
-      border: none;
-      font-size: 12px;
+      font-size: 0.76rem;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.2s;
+      border: 1px solid transparent;
+      transition: all 0.15s;
     }
-    .btn-gestor:hover { opacity: 0.85; }
-    .btn-reset { background: #fee2e2; color: #b91c1c; }
-    .btn-close { background: #e0e7ff; color: #4338ca; }
 
-    .empty-state-gestor {
+    .btn-act-reset {
+      background: rgba(239, 68, 68, 0.08);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+    .btn-act-reset:hover {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-act-close {
+      background: rgba(59, 130, 246, 0.1);
+      color: #93c5fd;
+      border-color: rgba(59, 130, 246, 0.25);
+    }
+    .btn-act-close:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.45);
+    }
+
+    /* Estado Vazio */
+    .empty-state {
       grid-column: 1 / -1;
       text-align: center;
-      padding: 60px 20px;
-      color: var(--text-muted);
-      font-size: 16px;
-      background: rgba(29, 34, 80, 0.3);
-      border-radius: 20px;
-      border: 1px dashed var(--dialogue-border);
+      padding: 70px 20px;
+      background: rgba(20, 28, 46, 0.4);
+      border: 1px dashed var(--gestor-border);
+      border-radius: 16px;
+      color: var(--gestor-text-muted);
     }
-    .live-pulse {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      background: #10b981;
-      border-radius: 50%;
-      box-shadow: 0 0 10px #10b981;
-      animation: pulse 1.8s infinite;
+    .empty-state p {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      color: #cbd5e1;
     }
-    @keyframes pulse {
-      0% { transform: scale(0.9); opacity: 0.8; }
-      50% { transform: scale(1.3); opacity: 1; }
-      100% { transform: scale(0.9); opacity: 0.8; }
+    .empty-state span {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* Badges de Estado Sóbrios */
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-status.active {
+      background: rgba(34, 197, 94, 0.08);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .badge-status.pending {
+      background: rgba(234, 179, 8, 0.08);
+      color: #fde047;
+      border: 1px solid rgba(234, 179, 8, 0.2);
+    }
+    .badge-status.confirmed {
+      background: rgba(59, 130, 246, 0.08);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.2);
     }
   </style>
 </head>
 <body>
-  <div class="bg-radial-glow"></div>
 
-  <!-- Barra Superior Lexie -->
-  <header class="top-bar">
-    <div class="brand-logo" aria-label="Lexie">
-      <span class="brand-text">lexie</span>
-      <svg class="brand-wave" viewBox="0 0 140 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="lexieWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#B174FF" />
-            <stop offset="50%" stop-color="#7C89FF" />
-            <stop offset="100%" stop-color="#23E8FF" />
-          </linearGradient>
-        </defs>
-        <path d="M2 8.5C18 2.5 32 14.5 48 8.5C64 2.5 78 14.5 94 8.5C110 2.5 124 14.5 138 7.5"
-              stroke="url(#lexieWaveGrad)" stroke-width="3.2" stroke-linecap="round" />
-      </svg>
+  <!-- Cabeçalho Fixo e Fluido (Não sobrepõe em telas menores) -->
+  <header class="gestor-topbar">
+    <div class="gestor-brand-block">
+      <div class="brand-logo-compact" aria-label="Lexie">
+        <span class="brand-text">lexie</span>
+        <svg class="brand-wave" viewBox="0 0 140 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lexieWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#60a5fa" />
+            </linearGradient>
+          </defs>
+          <path d="M2 8.5C18 2.5 32 14.5 48 8.5C64 2.5 78 14.5 94 8.5C110 2.5 124 14.5 138 7.5"
+                stroke="url(#lexieWaveGrad)" stroke-width="3.2" stroke-linecap="round" />
+        </svg>
+      </div>
+
+      <div class="gestor-page-title">
+        <h1>Visão Geral do Restaurante</h1>
+        <p>Monitoramento em tempo real de comandas ativas</p>
+      </div>
     </div>
 
-    <div class="status-cluster">
-      <div class="ws-indicator">
-        <span class="ws-dot connected" id="ws-dot"></span>
-        <span id="ws-label">PAINEL DO GESTOR (AO VIVO)</span>
+    <div class="gestor-topbar-right">
+      <div class="stats-container">
+        <div class="stat-badge">
+          <span class="lbl">Abertas</span>
+          <span class="val" id="stat-total-sessoes">0</span>
+        </div>
+        <div class="stat-badge">
+          <span class="lbl">Total</span>
+          <span class="val" id="stat-faturamento">R$ 0,00</span>
+        </div>
       </div>
-      <a href="/" target="_blank" style="color: var(--text-periwinkle); text-decoration: none; font-size: 13px; font-weight: 500; margin-left: 12px;">+ Abrir Terminal de Voz</a>
+
+
     </div>
   </header>
 
-  <!-- Layout Principal do Gestor -->
-  <main class="gestor-layout">
-    <div class="gestor-header">
-      <div class="gestor-title-block">
-        <h1><span class="live-pulse"></span> Visão Geral do Restaurante</h1>
-        <p>Monitoramento em tempo real de todas as mesas, totens e balcões ativos.</p>
-      </div>
-      <div class="gestor-stats">
-        <div class="stat-pill">
-          <div class="val" id="stat-total-sessoes">0</div>
-          <div class="lbl">Comandas Abertas</div>
-        </div>
-        <div class="stat-pill">
-          <div class="val" id="stat-faturamento">R$ 0,00</div>
-          <div class="lbl">Total em Carrinhos</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Grid com Todos os Carrinhos -->
+  <!-- Conteúdo Principal -->
+  <main class="gestor-content">
     <div class="comandas-grid" id="comandas-grid">
-      <div class="empty-state-gestor">Carregando comandas...</div>
+      <div class="empty-state">
+        <p>Carregando comandas do restaurante...</p>
+      </div>
     </div>
   </main>
 
@@ -259,7 +411,7 @@
     }
 
     function formatOrigem(origem) {
-      return origem.replace(/_/g, " ").toUpperCase();
+      return (origem || "MESA").replace(/_/g, " ").toUpperCase();
     }
 
     async function carregarSessoesIniciais() {
@@ -278,7 +430,7 @@
     }
 
     async function resetarComanda(origem) {
-      if (confirm(`Deseja realmente limpar a comanda de ${origem}?`)) {
+      if (confirm(`Deseja realmente limpar a comanda de ${formatOrigem(origem)}?`)) {
         await fetch(`/sessoes/${encodeURIComponent(origem)}/reset`, { method: "POST" });
       }
     }
@@ -302,9 +454,9 @@
 
       if (origens.length === 0) {
         container.innerHTML = `
-          <div class="empty-state-gestor">
-            Nenhuma comanda aberta no momento.<br>
-            <span style="font-size: 13px; color: var(--text-periwinkle);">Quando uma mesa ou totem começar a pedir por voz, ela aparecerá aqui automaticamente.</span>
+          <div class="empty-state">
+            <p>Nenhuma comanda aberta no momento.</p>
+            <span>Quando uma mesa, totem ou balcão receber pedidos, aparecerá aqui instantaneamente.</span>
           </div>
         `;
         return;
@@ -316,46 +468,42 @@
         const itens = cart.itens || [];
         const estado = sess.estado || "ACTIVE";
 
-        let badgeClass = "badge-active";
-        if (estado === "PENDING") badgeClass = "badge-pending";
-        if (estado === "CONFIRMADO" || estado === "CONFIRMED") badgeClass = "badge-confirmed";
+        let badgeClass = "active";
+        if (estado === "PENDING") badgeClass = "pending";
+        if (estado === "CONFIRMADO" || estado === "CONFIRMED" || estado === "COMPLETED") badgeClass = "confirmed";
 
         const itensHtml = itens.length > 0 
           ? itens.map(it => `
-              <div class="gestor-item-row">
-                <span><span class="gestor-item-qty">${it.quantidade}x</span> ${it.nome}</span>
-                <span class="gestor-item-price">${formatCurrency(it.subtotal || (it.quantidade * it.preco_unitario))}</span>
+              <div class="comanda-item-row">
+                <div class="comanda-item-left">
+                  <span class="item-qty">${it.quantidade}x</span>
+                  <span class="item-name">${it.nome}</span>
+                </div>
+                <span class="item-price">${formatCurrency(it.subtotal || (it.quantidade * it.preco_unitario))}</span>
               </div>
             `).join("")
-          : `<div style="font-size: 13px; color: #9ca3af; font-style: italic;">Nenhum item adicionado ainda.</div>`;
-
-        const ultimaFala = sess.texto_usuario ? `
-          <div class="gestor-msg-box">
-            <strong>Última fala:</strong> "${sess.texto_usuario}"
-          </div>
-        ` : "";
+          : `<div class="comanda-empty-msg">Nenhum item adicionado ainda.</div>`;
 
         return `
-          <div class="comanda-gestor-card">
+          <div class="comanda-card">
             <div>
-              <div class="comanda-gestor-header">
-                <span class="comanda-gestor-origem">${formatOrigem(origem)}</span>
-                <span class="comanda-state-pill ${badgeClass}">${estado}</span>
+              <div class="comanda-header">
+                <span class="comanda-origem-title">${formatOrigem(origem)}</span>
+                <span class="badge-status ${badgeClass}">${estado}</span>
               </div>
-              <div class="comanda-gestor-items">
+              <div class="comanda-items-list">
                 ${itensHtml}
               </div>
             </div>
 
-            <div>
-              ${ultimaFala}
-              <div class="comanda-gestor-footer">
-                <span class="comanda-gestor-total-label">Subtotal</span>
-                <span class="comanda-gestor-total-val">${formatCurrency(cart.total)}</span>
+            <div class="comanda-footer">
+              <div class="comanda-total-row">
+                <span class="comanda-total-lbl">Subtotal</span>
+                <span class="comanda-total-val">${formatCurrency(cart.total)}</span>
               </div>
-              <div class="gestor-actions">
-                <button class="btn-gestor btn-reset" onclick="resetarComanda('${origem}')">Limpar</button>
-                <button class="btn-gestor btn-close" onclick="fecharComanda('${origem}')">Finalizar</button>
+              <div class="comanda-actions">
+                <button type="button" class="btn-act btn-act-reset" onclick="resetarComanda('${origem}')">Limpar</button>
+                <button type="button" class="btn-act btn-act-close" onclick="fecharComanda('${origem}')">Finalizar</button>
               </div>
             </div>
           </div>
@@ -365,7 +513,6 @@
 
     function connectWS() {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      // O gestor conecta SEM passar query param de origem para escutar TODOS os eventos
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws/sessao`);
 
       ws.onmessage = (event) => {
@@ -373,12 +520,10 @@
           const payload = JSON.parse(event.data);
           if (!payload.origem) return;
 
-          // Atualiza a sessão no estado do gestor
           state.sessions[payload.origem] = {
             origem: payload.origem,
             estado: payload.estado,
             carrinho: payload.carrinho,
-            texto_usuario: payload.texto_usuario,
             last_updated: Date.now()
           };
 
@@ -398,4 +543,3 @@
   </script>
 </body>
 </html>
-
