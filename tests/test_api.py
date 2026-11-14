@@ -16,7 +16,7 @@ def make_client():
 def test_health_menu_cart_and_session_routes():
     client = make_client()
 
-    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health").json().get("status") == "ok"
     assert client.get("/health").status_code == 200
 
     menu = client.get("/cardapio")

@@ -189,6 +189,7 @@ def create_app(session_manager: Optional[SessionManager] = None) -> FastAPI:
                     ),
                     topic=os.getenv("S5_METRICS_TOPIC", s5_cfg.get("topic_input", "ods.s5.event.metrics")),
                     group_id=os.getenv("S5_METRICS_GROUP_ID", s5_cfg.get("group_id", "a7-admin-s5")),
+                    auto_offset_reset=s5_cfg.get("auto_offset_reset", "earliest"),
                 )
                 s5_consumer.start_background()
             except Exception as exc:

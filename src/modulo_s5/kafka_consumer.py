@@ -81,6 +81,7 @@ class S5MetricsKafkaConsumer:
         bootstrap_servers: str = "34.66.235.91:9093",
         topic: str = "ods.s5.event.metrics",
         group_id: str = "a7-admin-s5",
+        auto_offset_reset: str = "earliest",
         consumer_factory: Optional[Callable[[Dict[str, Any]], Any]] = None,
     ) -> None:
         if consumer_factory is None and ConfluentConsumer is None:
@@ -89,6 +90,7 @@ class S5MetricsKafkaConsumer:
         self.bootstrap_servers = bootstrap_servers.strip()
         self.topic = topic.strip()
         self.group_id = group_id.strip()
+        self.auto_offset_reset = auto_offset_reset.strip()
         self.running = False
         self._bg_thread: Optional[threading.Thread] = None
         factory = consumer_factory or ConfluentConsumer
@@ -96,7 +98,7 @@ class S5MetricsKafkaConsumer:
             {
                 "bootstrap.servers": self.bootstrap_servers,
                 "group.id": self.group_id,
-                "auto.offset.reset": "latest",
+                "auto.offset.reset": self.auto_offset_reset,
                 "enable.auto.commit": True,
             }
         )

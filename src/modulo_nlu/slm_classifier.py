@@ -582,6 +582,7 @@ RESPOSTA JSON:"""
         # 1. Identificação rápida de intenção por palavras-chave essenciais
         intencao_detectada = None
         gatilhos_rapidos = {
+            "INICIAR_PEDIDO": ["fazer pedido", "iniciar pedido", "novo pedido", "começar pedido", "abrir pedido"],
             "REMOVER_ITEM": ["tira", "retira", "remove", "remover", "exclui", "não quero mais"],
             "CONFIRMAR_PEDIDO": ["fechar", "confirmar", "confirmo", "certo", "finalizar", "só isso"],
             "CANCELAR_PEDIDO": ["cancela", "cancelar", "desisti", "zerar"],
