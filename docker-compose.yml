@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  a7-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ods-a7:latest
+    container_name: ods-a7-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_ENABLED=1
+      - PYTHONUNBUFFERED=1
