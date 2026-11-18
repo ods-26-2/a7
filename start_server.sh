@@ -9,17 +9,18 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 1. Ativa o ambiente virtual se existir
-if [ -d ".venv" ]; then
+# 1. Ativa o ambiente virtual se existir (e for executável válido no ambiente atual)
+if [ -x ".venv/bin/python3" ]; then
     PYTHON_EXEC=".venv/bin/python3"
-elif [ -d "venv" ]; then
+elif [ -x "venv/bin/python3" ]; then
     PYTHON_EXEC="venv/bin/python3"
 else
     PYTHON_EXEC="python3"
 fi
 
-# 2. Habilita o Kafka por padrão
-export KAFKA_ENABLED=1
+# 2. Habilita o Kafka (I5 e S5) por padrão
+export KAFKA_ENABLED=${KAFKA_ENABLED:-1}
+export S5_KAFKA_ENABLED=${S5_KAFKA_ENABLED:-1}
 
 echo "=================================================="
 echo "Iniciando Servidor A7 (Varejo & Terminal B6)"

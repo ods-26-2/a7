@@ -1,0 +1,19 @@
+# Ambientes virtuais e caches Python (NUNCA copiar para o container)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Diretórios pesados de demonstração/treinamento e modelos brutos (montados via volume no Ollama)
+Bonsai-demo/
+models/
+outputs_lora/
+
+# Git e arquivos temporários
+.git/
+.gitignore
+jsons_gerados copy/
+jsons_gerados/*.json
+!jsons_gerados/.gitkeep

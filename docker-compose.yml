@@ -1,6 +1,35 @@
-version: "3.8"
-
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ods-a7-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./models/nlu_varejo_gguf:/models/nlu_varejo_gguf
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        SERVER_PID=$$!
+        echo "[Ollama] Aguardando servidor iniciar..."
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        if ! ollama list | grep -q "llama3.2-varejo"; then
+          if [ -f "/models/nlu_varejo_gguf/Llama-3.2-1B-Instruct.Q4_K_M.gguf" ]; then
+            echo "[Ollama] Registrando modelo fine-tuned local (GGUF + Modelfile)..."
+            cd /models/nlu_varejo_gguf && ollama create llama3.2-varejo -f Modelfile
+          else
+            echo "[Ollama] GGUF local nao encontrado. Baixando llama3.2:1b e criando perfil llama3.2-varejo..."
+            ollama pull llama3.2:1b
+            printf "FROM llama3.2:1b\nPARAMETER temperature 0.0\nPARAMETER top_p 0.9\nPARAMETER top_k 40\n" > /tmp/Modelfile.fallback
+            ollama create llama3.2-varejo -f /tmp/Modelfile.fallback
+          fi
+        else
+          echo "[Ollama] Modelo llama3.2-varejo ja registrado!"
+        fi
+        wait $$SERVER_PID
+
   a7-server:
     build:
       context: .
@@ -8,8 +37,17 @@ services:
     image: ods-a7:latest
     container_name: ods-a7-server
     restart: unless-stopped
+    depends_on:
+      - ollama
     ports:
       - "8000:8000"
     environment:
       - KAFKA_ENABLED=1
+      - S5_KAFKA_ENABLED=1
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-34.66.235.91:9093}
+      - OLLAMA_ENDPOINT_URL=${OLLAMA_ENDPOINT_URL:-http://ollama:11434}
+      - OLLAMA_AUTO_RECONNECT=1
       - PYTHONUNBUFFERED=1
+
+volumes:
+  ollama_data:

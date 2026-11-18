@@ -59,7 +59,7 @@ class SLMIntentClassifier:
 
         # Resolução do perfil ativo do modelo
         perfis_dict = self.config.get("perfis", {})
-        perfil_chave = perfil or self.config.get("modelo_ativo")
+        perfil_chave = perfil or os.getenv("SLM_PROFILE") or self.config.get("modelo_ativo")
         if perfil_chave and isinstance(perfis_dict, dict) and perfil_chave in perfis_dict:
             modelo_cfg = perfis_dict[perfil_chave]
             self.perfil_ativo = perfil_chave
@@ -68,8 +68,11 @@ class SLMIntentClassifier:
             self.perfil_ativo = perfil_chave or "default"
 
         self.provedor = str(modelo_cfg.get("provedor", "ollama")).lower()
-        self.model_name = model_name_or_path or modelo_cfg.get("nome", "llama3.2:1b")
-        self.endpoint_url = modelo_cfg.get("endpoint_url", "http://127.0.0.1:11434").rstrip("/")
+        self.model_name = model_name_or_path or os.getenv("SLM_MODEL_NAME") or modelo_cfg.get("nome", "llama3.2:1b")
+        self.endpoint_url = os.getenv(
+            "OLLAMA_ENDPOINT_URL",
+            modelo_cfg.get("endpoint_url", "http://127.0.0.1:11434"),
+        ).rstrip("/")
         self.temperatura = float(modelo_cfg.get("temperatura", 0.0))
         self.max_tokens = int(modelo_cfg.get("max_tokens", 150))
         self.timeout_segundos = float(modelo_cfg.get("timeout_segundos", 8.0))
@@ -438,6 +441,9 @@ RESPOSTA JSON:"""
         Caso o Ollama esteja offline, executa o fallback algorítmico dinâmico (Fuzzy Matching).
         """
         nomes_validos = [item["nome"] for item in self.intencoes] + ["DESCONHECIDO"]
+
+        if self.model_driver is None and os.getenv("OLLAMA_AUTO_RECONNECT", "").lower() in ("1", "true", "yes"):
+            self._inicializar_driver_slm()
 
         if self.model_driver == "ollama":
             import urllib.error
